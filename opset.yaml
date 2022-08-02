@@ -1,0 +1,972 @@
+0:
+  cycle: 7
+  mode: IMPL
+  op: BRK
+1:
+  cycle: 6
+  mode: IND_X
+  op: ORA
+2:
+  cycle: 2
+  mode: IMPL
+  op: NOP
+3:
+  cycle: 8
+  mode: IND_X
+  op: SLO
+4:
+  cycle: 3
+  mode: IMPL
+  op: NOPD
+5:
+  cycle: 3
+  mode: ZPG
+  op: ORA
+6:
+  cycle: 5
+  mode: ZPG
+  op: ASL
+7:
+  cycle: 5
+  mode: ZPG
+  op: SLO
+8:
+  cycle: 3
+  mode: IMPL
+  op: PHP
+9:
+  cycle: 2
+  mode: IMD
+  op: ORA
+10:
+  cycle: 2
+  mode: ACM
+  op: ASL
+12:
+  cycle: 4
+  mode: IMPL
+  op: NOPI
+13:
+  cycle: 4
+  mode: ABS
+  op: ORA
+14:
+  cycle: 6
+  mode: ABS
+  op: ASL
+15:
+  cycle: 6
+  mode: ABS
+  op: SLO
+16:
+  cycle: 2
+  mode: REL
+  op: BPL
+17:
+  cycle: 5
+  mode: IND_Y
+  op: ORA
+18:
+  cycle: 2
+  mode: IMPL
+  op: NOP
+19:
+  cycle: 8
+  mode: IND_Y
+  op: SLO
+20:
+  cycle: 4
+  mode: IMPL
+  op: NOPD
+21:
+  cycle: 4
+  mode: ZPG_X
+  op: ORA
+22:
+  cycle: 6
+  mode: ZPG_X
+  op: ASL
+23:
+  cycle: 6
+  mode: ZPG_X
+  op: SLO
+24:
+  cycle: 2
+  mode: IMPL
+  op: CLC
+25:
+  cycle: 4
+  mode: ABS_Y
+  op: ORA
+26:
+  cycle: 2
+  mode: IMPL
+  op: NOP
+27:
+  cycle: 7
+  mode: ABS_Y
+  op: SLO
+28:
+  cycle: 4
+  mode: IMPL
+  op: NOPI
+29:
+  cycle: 4
+  mode: ABS_X
+  op: ORA
+30:
+  cycle: 6
+  mode: ABS_X
+  op: ASL
+31:
+  cycle: 7
+  mode: ABS_X
+  op: SLO
+32:
+  cycle: 6
+  mode: ABS
+  op: JSR
+33:
+  cycle: 6
+  mode: IND_X
+  op: AND
+34:
+  cycle: 2
+  mode: IMPL
+  op: NOP
+35:
+  cycle: 8
+  mode: IND_X
+  op: RLA
+36:
+  cycle: 3
+  mode: ZPG
+  op: BIT
+37:
+  cycle: 3
+  mode: ZPG
+  op: AND
+38:
+  cycle: 5
+  mode: ZPG
+  op: ROL
+39:
+  cycle: 5
+  mode: ZPG
+  op: RLA
+40:
+  cycle: 4
+  mode: IMPL
+  op: PLP
+41:
+  cycle: 2
+  mode: IMD
+  op: AND
+42:
+  cycle: 2
+  mode: ACM
+  op: ROL
+44:
+  cycle: 4
+  mode: ABS
+  op: BIT
+45:
+  cycle: 4
+  mode: ABS
+  op: AND
+46:
+  cycle: 6
+  mode: ABS
+  op: ROL
+47:
+  cycle: 6
+  mode: ABS
+  op: RLA
+48:
+  cycle: 2
+  mode: REL
+  op: BMI
+49:
+  cycle: 5
+  mode: IND_Y
+  op: AND
+50:
+  cycle: 2
+  mode: IMPL
+  op: NOP
+51:
+  cycle: 8
+  mode: IND_Y
+  op: RLA
+52:
+  cycle: 4
+  mode: IMPL
+  op: NOPD
+53:
+  cycle: 4
+  mode: ZPG_X
+  op: AND
+54:
+  cycle: 6
+  mode: ZPG_X
+  op: ROL
+55:
+  cycle: 6
+  mode: ZPG_X
+  op: RLA
+56:
+  cycle: 2
+  mode: IMPL
+  op: SEC
+57:
+  cycle: 4
+  mode: ABS_Y
+  op: AND
+58:
+  cycle: 2
+  mode: IMPL
+  op: NOP
+59:
+  cycle: 7
+  mode: ABS_Y
+  op: RLA
+60:
+  cycle: 4
+  mode: IMPL
+  op: NOPI
+61:
+  cycle: 4
+  mode: ABS_X
+  op: AND
+62:
+  cycle: 6
+  mode: ABS_X
+  op: ROL
+63:
+  cycle: 7
+  mode: ABS_X
+  op: RLA
+64:
+  cycle: 6
+  mode: IMPL
+  op: RTI
+65:
+  cycle: 6
+  mode: IND_X
+  op: EOR
+66:
+  cycle: 2
+  mode: IMPL
+  op: NOP
+67:
+  cycle: 8
+  mode: IND_X
+  op: SRE
+68:
+  cycle: 3
+  mode: IMPL
+  op: NOPD
+69:
+  cycle: 3
+  mode: ZPG
+  op: EOR
+70:
+  cycle: 5
+  mode: ZPG
+  op: LSR
+71:
+  cycle: 5
+  mode: ZPG
+  op: SRE
+72:
+  cycle: 3
+  mode: IMPL
+  op: PHA
+73:
+  cycle: 2
+  mode: IMD
+  op: EOR
+74:
+  cycle: 2
+  mode: ACM
+  op: LSR
+76:
+  cycle: 3
+  mode: ABS
+  op: JMP
+77:
+  cycle: 4
+  mode: ABS
+  op: EOR
+78:
+  cycle: 6
+  mode: ABS
+  op: LSR
+79:
+  cycle: 6
+  mode: ABS
+  op: SRE
+80:
+  cycle: 2
+  mode: REL
+  op: BVC
+81:
+  cycle: 5
+  mode: IND_Y
+  op: EOR
+82:
+  cycle: 2
+  mode: IMPL
+  op: NOP
+83:
+  cycle: 8
+  mode: IND_Y
+  op: SRE
+84:
+  cycle: 4
+  mode: IMPL
+  op: NOPD
+85:
+  cycle: 4
+  mode: ZPG_X
+  op: EOR
+86:
+  cycle: 6
+  mode: ZPG_X
+  op: LSR
+87:
+  cycle: 6
+  mode: ZPG_X
+  op: SRE
+88:
+  cycle: 2
+  mode: IMPL
+  op: CLI
+89:
+  cycle: 4
+  mode: ABS_Y
+  op: EOR
+90:
+  cycle: 2
+  mode: IMPL
+  op: NOP
+91:
+  cycle: 7
+  mode: ABS_Y
+  op: SRE
+92:
+  cycle: 4
+  mode: IMPL
+  op: NOPI
+93:
+  cycle: 4
+  mode: ABS_X
+  op: EOR
+94:
+  cycle: 6
+  mode: ABS_X
+  op: LSR
+95:
+  cycle: 7
+  mode: ABS_X
+  op: SRE
+96:
+  cycle: 6
+  mode: IMPL
+  op: RTS
+97:
+  cycle: 6
+  mode: IND_X
+  op: ADC
+98:
+  cycle: 2
+  mode: IMPL
+  op: NOP
+99:
+  cycle: 8
+  mode: IND_X
+  op: RRA
+100:
+  cycle: 3
+  mode: IMPL
+  op: NOPD
+101:
+  cycle: 3
+  mode: ZPG
+  op: ADC
+102:
+  cycle: 5
+  mode: ZPG
+  op: ROR
+103:
+  cycle: 5
+  mode: ZPG
+  op: RRA
+104:
+  cycle: 4
+  mode: IMPL
+  op: PLA
+105:
+  cycle: 2
+  mode: IMD
+  op: ADC
+106:
+  cycle: 2
+  mode: ACM
+  op: ROR
+108:
+  cycle: 5
+  mode: ABS_IND
+  op: JMP
+109:
+  cycle: 4
+  mode: ABS
+  op: ADC
+110:
+  cycle: 6
+  mode: ABS
+  op: ROR
+111:
+  cycle: 6
+  mode: ABS
+  op: RRA
+112:
+  cycle: 2
+  mode: REL
+  op: BVS
+113:
+  cycle: 5
+  mode: IND_Y
+  op: ADC
+114:
+  cycle: 2
+  mode: IMPL
+  op: NOP
+115:
+  cycle: 8
+  mode: IND_Y
+  op: RRA
+116:
+  cycle: 4
+  mode: IMPL
+  op: NOPD
+117:
+  cycle: 4
+  mode: ZPG_X
+  op: ADC
+118:
+  cycle: 6
+  mode: ZPG_X
+  op: ROR
+119:
+  cycle: 6
+  mode: ZPG_X
+  op: RRA
+120:
+  cycle: 2
+  mode: IMPL
+  op: SEI
+121:
+  cycle: 4
+  mode: ABS_Y
+  op: ADC
+122:
+  cycle: 2
+  mode: IMPL
+  op: NOP
+123:
+  cycle: 7
+  mode: ABS_Y
+  op: RRA
+124:
+  cycle: 4
+  mode: IMPL
+  op: NOPI
+125:
+  cycle: 4
+  mode: ABS_X
+  op: ADC
+126:
+  cycle: 6
+  mode: ABS_X
+  op: ROR
+127:
+  cycle: 7
+  mode: ABS_X
+  op: RRA
+128:
+  cycle: 2
+  mode: IMPL
+  op: NOPD
+129:
+  cycle: 6
+  mode: IND_X
+  op: STA
+130:
+  cycle: 2
+  mode: IMPL
+  op: NOPD
+131:
+  cycle: 6
+  mode: IND_X
+  op: SAX
+132:
+  cycle: 3
+  mode: ZPG
+  op: STY
+133:
+  cycle: 3
+  mode: ZPG
+  op: STA
+134:
+  cycle: 3
+  mode: ZPG
+  op: STX
+135:
+  cycle: 3
+  mode: ZPG
+  op: SAX
+136:
+  cycle: 2
+  mode: IMPL
+  op: DEY
+137:
+  cycle: 2
+  mode: IMPL
+  op: NOPD
+138:
+  cycle: 2
+  mode: IMPL
+  op: TXA
+140:
+  cycle: 4
+  mode: ABS
+  op: STY
+141:
+  cycle: 4
+  mode: ABS
+  op: STA
+142:
+  cycle: 4
+  mode: ABS
+  op: STX
+143:
+  cycle: 4
+  mode: ABS
+  op: SAX
+144:
+  cycle: 2
+  mode: REL
+  op: BCC
+145:
+  cycle: 6
+  mode: IND_Y
+  op: STA
+146:
+  cycle: 2
+  mode: IMPL
+  op: NOP
+148:
+  cycle: 4
+  mode: ZPG_X
+  op: STY
+149:
+  cycle: 4
+  mode: ZPG_X
+  op: STA
+150:
+  cycle: 4
+  mode: ZPG_Y
+  op: STX
+151:
+  cycle: 4
+  mode: ZPG_Y
+  op: SAX
+152:
+  cycle: 2
+  mode: IMPL
+  op: TYA
+153:
+  cycle: 5
+  mode: ABS_Y
+  op: STA
+154:
+  cycle: 2
+  mode: IMPL
+  op: TXS
+157:
+  cycle: 4
+  mode: ABS_X
+  op: STA
+160:
+  cycle: 2
+  mode: IMD
+  op: LDY
+161:
+  cycle: 6
+  mode: IND_X
+  op: LDA
+162:
+  cycle: 2
+  mode: IMD
+  op: LDX
+163:
+  cycle: 6
+  mode: IND_X
+  op: LAX
+164:
+  cycle: 3
+  mode: ZPG
+  op: LDY
+165:
+  cycle: 3
+  mode: ZPG
+  op: LDA
+166:
+  cycle: 3
+  mode: ZPG
+  op: LDX
+167:
+  cycle: 3
+  mode: ZPG
+  op: LAX
+168:
+  cycle: 2
+  mode: IMPL
+  op: TAY
+169:
+  cycle: 2
+  mode: IMD
+  op: LDA
+170:
+  cycle: 2
+  mode: IMPL
+  op: TAX
+172:
+  cycle: 4
+  mode: ABS
+  op: LDY
+173:
+  cycle: 4
+  mode: ABS
+  op: LDA
+174:
+  cycle: 4
+  mode: ABS
+  op: LDX
+175:
+  cycle: 4
+  mode: ABS
+  op: LAX
+176:
+  cycle: 2
+  mode: REL
+  op: BCS
+177:
+  cycle: 5
+  mode: IND_Y
+  op: LDA
+178:
+  cycle: 2
+  mode: IMPL
+  op: NOP
+179:
+  cycle: 5
+  mode: IND_Y
+  op: LAX
+180:
+  cycle: 4
+  mode: ZPG_X
+  op: LDY
+181:
+  cycle: 4
+  mode: ZPG_X
+  op: LDA
+182:
+  cycle: 4
+  mode: ZPG_Y
+  op: LDX
+183:
+  cycle: 4
+  mode: ZPG_Y
+  op: LAX
+184:
+  cycle: 2
+  mode: IMPL
+  op: CLV
+185:
+  cycle: 4
+  mode: ABS_Y
+  op: LDA
+186:
+  cycle: 2
+  mode: IMPL
+  op: TSX
+188:
+  cycle: 4
+  mode: ABS_X
+  op: LDY
+189:
+  cycle: 4
+  mode: ABS_X
+  op: LDA
+190:
+  cycle: 4
+  mode: ABS_Y
+  op: LDX
+191:
+  cycle: 4
+  mode: ABS_Y
+  op: LAX
+192:
+  cycle: 2
+  mode: IMD
+  op: CPY
+193:
+  cycle: 6
+  mode: IND_X
+  op: CMP
+194:
+  cycle: 2
+  mode: IMPL
+  op: NOPD
+195:
+  cycle: 8
+  mode: IND_X
+  op: DCP
+196:
+  cycle: 3
+  mode: ZPG
+  op: CPY
+197:
+  cycle: 3
+  mode: ZPG
+  op: CMP
+198:
+  cycle: 5
+  mode: ZPG
+  op: DEC
+199:
+  cycle: 5
+  mode: ZPG
+  op: DCP
+200:
+  cycle: 2
+  mode: IMPL
+  op: INY
+201:
+  cycle: 2
+  mode: IMD
+  op: CMP
+202:
+  cycle: 2
+  mode: IMPL
+  op: DEX
+204:
+  cycle: 4
+  mode: ABS
+  op: CPY
+205:
+  cycle: 4
+  mode: ABS
+  op: CMP
+206:
+  cycle: 6
+  mode: ABS
+  op: DEC
+207:
+  cycle: 6
+  mode: ABS
+  op: DCP
+208:
+  cycle: 2
+  mode: REL
+  op: BNE
+209:
+  cycle: 5
+  mode: IND_Y
+  op: CMP
+210:
+  cycle: 2
+  mode: IMPL
+  op: NOP
+211:
+  cycle: 8
+  mode: IND_Y
+  op: DCP
+212:
+  cycle: 4
+  mode: IMPL
+  op: NOPD
+213:
+  cycle: 4
+  mode: ZPG_X
+  op: CMP
+214:
+  cycle: 6
+  mode: ZPG_X
+  op: DEC
+215:
+  cycle: 6
+  mode: ZPG_X
+  op: DCP
+216:
+  cycle: 2
+  mode: IMPL
+  op: CLD
+217:
+  cycle: 4
+  mode: ABS_Y
+  op: CMP
+218:
+  cycle: 2
+  mode: IMPL
+  op: NOP
+219:
+  cycle: 7
+  mode: ABS_Y
+  op: DCP
+220:
+  cycle: 4
+  mode: IMPL
+  op: NOPI
+221:
+  cycle: 4
+  mode: ABS_X
+  op: CMP
+222:
+  cycle: 7
+  mode: ABS_X
+  op: DEC
+223:
+  cycle: 7
+  mode: ABS_X
+  op: DCP
+224:
+  cycle: 2
+  mode: IMD
+  op: CPX
+225:
+  cycle: 6
+  mode: IND_X
+  op: SBC
+226:
+  cycle: 3
+  mode: IMPL
+  op: NOPD
+227:
+  cycle: 8
+  mode: IND_X
+  op: ISB
+228:
+  cycle: 3
+  mode: ZPG
+  op: CPX
+229:
+  cycle: 3
+  mode: ZPG
+  op: SBC
+230:
+  cycle: 5
+  mode: ZPG
+  op: INC
+231:
+  cycle: 5
+  mode: ZPG
+  op: ISB
+232:
+  cycle: 2
+  mode: IMPL
+  op: INX
+233:
+  cycle: 2
+  mode: IMD
+  op: SBC
+234:
+  cycle: 2
+  mode: IMPL
+  op: NOP
+235:
+  cycle: 2
+  mode: IMD
+  op: SBC
+236:
+  cycle: 4
+  mode: ABS
+  op: CPX
+237:
+  cycle: 4
+  mode: ABS
+  op: SBC
+238:
+  cycle: 6
+  mode: ABS
+  op: INC
+239:
+  cycle: 6
+  mode: ABS
+  op: ISB
+240:
+  cycle: 2
+  mode: REL
+  op: BEQ
+241:
+  cycle: 5
+  mode: IND_Y
+  op: SBC
+242:
+  cycle: 2
+  mode: IMPL
+  op: NOP
+243:
+  cycle: 8
+  mode: IND_Y
+  op: ISB
+244:
+  cycle: 4
+  mode: IMPL
+  op: NOPD
+245:
+  cycle: 4
+  mode: ZPG_X
+  op: SBC
+246:
+  cycle: 6
+  mode: ZPG_X
+  op: INC
+247:
+  cycle: 6
+  mode: ZPG_X
+  op: ISB
+248:
+  cycle: 2
+  mode: IMPL
+  op: SED
+249:
+  cycle: 4
+  mode: ABS_Y
+  op: SBC
+250:
+  cycle: 2
+  mode: IMPL
+  op: NOP
+251:
+  cycle: 7
+  mode: ABS_Y
+  op: ISB
+252:
+  cycle: 4
+  mode: IMPL
+  op: NOPI
+253:
+  cycle: 4
+  mode: ABS_X
+  op: SBC
+254:
+  cycle: 7
+  mode: ABS_X
+  op: INC
+255:
+  cycle: 7
+  mode: ABS_X
+  op: ISB
