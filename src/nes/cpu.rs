@@ -1,20 +1,9 @@
 #![allow(unused_variables)]
 
-extern crate yaml_rust;
+pub mod ram;
 
 use std::collections::HashMap;
-use std::fs;
-use std::fs::File;
-use std::io::prelude::*;
-use yaml_rust::{YamlLoader, YamlEmitter, Yaml};
-
 use once_cell::sync::Lazy;
-
-pub const PROG_ROM_MAX_SIZE: usize = 0x8000;
-pub const CHAR_ROM_MAX_SIZE: usize = 0x2000;
-pub const PROG_ROM_UNIT_SIZE: usize = 0x4000;
-pub const CHAR_ROM_UNIT_SIZE: usize = 0x2000;
-pub const NES_HSIZE: usize = 0x0010;
 
 const CARRY: u8 = 1 << 0;
 const ZERO: u8 = 1 << 1;
@@ -368,27 +357,52 @@ pub static OP_TABLE: Lazy<HashMap<u8, OpInfo>> = Lazy::new(|| {
 
 #[derive(Debug)]
 pub struct Register {
-    A: u8,
-    X: u8,
-    Y: u8,
-    SP: u16,
-    PC: u16,
-    P: u8, // flags
+    a: u8,
+    x: u8,
+    y: u8,
+    sp: u16,
+    pc: u16,
+    p: u8, // flags
 }
+
 impl Register {
     fn new() -> Register {
         Register {
-            A: 0,
-            X: 0,
-            Y: 0,
-            SP: 0xfd,
-            PC: 0xc000,
-            P: 0x24,
+            a: 0,
+            x: 0,
+            y: 0,
+            sp: 0xfd,
+            pc: 0xc000,
+            p: 0x24,
         }
+    }
+    pub fn reset(&mut self) {
+        self.a = 0;
+        self.x = 0;
+        self.y = 0;
+        self.sp = 0xfd;
+        self.pc = 0xc000;
+        self.p = 0x24;
     }
 }
 
 #[derive(Debug)]
-pub struct CPU {
+pub struct Cpu {
+    cycle: u8,
+    reg: Register,
+    ram: Ram,
+}
 
+impl Cpu {
+    pub fn new() -> Cpu {
+        Cpu {
+            cycle: 0,
+            reg: Register::new(),
+            ram: 1,
+        }
+    }
+    pub fn reset(&mut self) {
+        self.cycle = 0;
+        self.reg.reset();
+    }
 }
