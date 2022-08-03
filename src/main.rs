@@ -76,8 +76,12 @@ fn main() {
         let name = op.get(&Yaml::from_str("op")).unwrap().as_str().unwrap();
         // println!("index:{:X}, cycle:{:?}, mode:{:?}, name:{:?}",
         //     index, cycle, mode, name);
-        println!("OpInfo {{i: {:#04X}, cycle:{:?}, mode: AddrMode::{:?}, op: OpCodes::{:?}}}",
-            index, cycle, mode, name);
+        println!("k:{}, v: OpInfo {{i: {:#04X}, cycle:{:?}, mode: AddrMode::{:?}, op: OpCodes::{:?}}}",
+            index, index, cycle, mode, name);
+    }
+
+    for a in cpu::OP_TABLE.iter() {
+        println!("{} {:?}", a.0, a.1);
     }
 
     // // Index access for map & array
