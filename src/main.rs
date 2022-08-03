@@ -2,6 +2,8 @@
 
 extern crate yaml_rust;
 
+mod cpu;
+
 use std::fs;
 use std::fs::File;
 use std::io::prelude::*;
@@ -54,6 +56,8 @@ impl Cassette {
 }
 
 
+// OpInfo {i: 0, cycle: 7, mode: AddrModes::IMPL, op: OpCodes::BRK},
+
 fn main() {
     // let path = "rom/hello.nes";
     // let cassette:Cassette = Cassette::new(path);
@@ -70,7 +74,9 @@ fn main() {
         let cycle = op.get(&Yaml::from_str("cycle")).unwrap().as_i64().unwrap();
         let mode = op.get(&Yaml::from_str("mode")).unwrap().as_str().unwrap();
         let name = op.get(&Yaml::from_str("op")).unwrap().as_str().unwrap();
-        println!("index:{:?}, cycle:{:?}, mode:{:?}, name:{:?}",
+        // println!("index:{:X}, cycle:{:?}, mode:{:?}, name:{:?}",
+        //     index, cycle, mode, name);
+        println!("OpInfo {{i: {:#04X}, cycle:{:?}, mode: AddrMode::{:?}, op: OpCodes::{:?}}}",
             index, cycle, mode, name);
     }
 
