@@ -11,10 +11,10 @@ pub const NES_HSIZE: usize = 0x0010;
 pub struct Cassette {
     path: String,
     rom_size: u64,
-    prog_size: usize,
-    char_size: usize,
-    prog_rom: Vec<u8>,
-    char_rom: Vec<u8>
+    pub prog_size: usize,
+    pub char_size: usize,
+    pub prog_rom: Vec<u8>,
+    pub char_rom: Vec<u8>
 }
 
 impl Cassette {
@@ -45,5 +45,13 @@ impl Cassette {
             prog_rom: prog_rom,
             char_rom: char_rom
         }        
+    }
+
+    pub fn prog_rom_read(&self, addr: u16) -> u8 {
+        self.prog_rom[addr as usize]
+    }
+
+    pub fn char_rom_read(&self, addr: u16) -> u8 {
+        self.char_rom[addr as usize]
     }
 }

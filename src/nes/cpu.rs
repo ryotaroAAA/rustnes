@@ -1,9 +1,9 @@
 #![allow(unused_variables)]
 
-pub mod ram;
-
 use std::collections::HashMap;
 use once_cell::sync::Lazy;
+use super::Cassette;
+use super::Ram;
 
 const CARRY: u8 = 1 << 0;
 const ZERO: u8 = 1 << 1;
@@ -371,7 +371,7 @@ impl Register {
             a: 0,
             x: 0,
             y: 0,
-            sp: 0xfd,
+            sp: 0x01fd,
             pc: 0xc000,
             p: 0x24,
         }
@@ -380,29 +380,63 @@ impl Register {
         self.a = 0;
         self.x = 0;
         self.y = 0;
-        self.sp = 0xfd;
+        self.sp = 0x01fd;
         self.pc = 0xc000;
         self.p = 0x24;
     }
 }
 
 #[derive(Debug)]
-pub struct Cpu {
+pub struct Cpu<'a> {
     cycle: u8,
     reg: Register,
-    ram: Ram,
+    ram: &'a mut Ram,
+    cas: &'a Cassette,
 }
 
-impl Cpu {
-    pub fn new() -> Cpu {
+impl<'a> Cpu<'a> {
+    pub fn new(ram: &'a mut Ram, cas: &'a Cassette) -> Cpu<'a> {
         Cpu {
             cycle: 0,
             reg: Register::new(),
-            ram: 1,
+            ram: ram,
+            cas: cas,
         }
     }
     pub fn reset(&mut self) {
         self.cycle = 0;
         self.reg.reset();
+    }
+    fn bread(&mut self, addr: u16) -> u8 {
+        self.read(addr)
+    }
+    fn wread(&mut self, addr: u16) -> u16 {
+        (self.read(addr) + (self.read(addr +1) << 8)) as u16
+    }
+    fn read(&mut self, addr: u16) -> u8 {
+        match addr {
+            0x0000 ..= 0x1FFF => self.ram.read(addr),
+            0x2000 ..= 0x3FFF => 0, // ppu read
+            0x4016 => 0, // joypad 1
+            0x4017 => 0, // joypad 1
+            0x4000 ..= 0x401F => 0, // apu
+            0x6000 ..= 0x7FFF => 0, // extram
+            0x8000 ..= 0xBFFF => self.cas.prog_rom_read(addr - 0x8000),
+            0xC000 ..= 0xFFFF => {
+                if self.cas.prog_size <= 0x4000 {
+                    self.cas.prog_rom_read(addr - 0xC000)
+                } else {
+                    self.cas.prog_rom_read(addr - 0x8000)
+                }
+            },
+            _ => panic!("invalid addr {:#X}", addr)
+        }
+    }
+    fn fetch(&mut self) -> u8{
+        0
+    }
+    pub fn run(&mut self) -> u16 {
+        let pc = self.reg.pc;
+        0
     }
 }
