@@ -14,7 +14,7 @@ const BREAK: u8 = 1 << 4;
 const OVERFLOW: u8 = 1 << 6;
 const NEGATIVE: u8 = 1 << 7;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 enum AddrModes {
     IMPL,
     ACM,
@@ -31,7 +31,7 @@ enum AddrModes {
     ABSIND,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 enum OpCodes {
     ADC,
     SBC,
@@ -101,7 +101,7 @@ enum OpCodes {
     RRA,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct OpInfo {
     cycle: u8,
     mode: AddrModes,
@@ -387,9 +387,9 @@ impl Register {
     }
 }
 
-struct fetched_op {
+struct FetchedOp {
+    op: OpInfo,
     data: u16,
-    mode: AddrModes,
     add_cycle: u8
 }
 
@@ -430,40 +430,79 @@ impl<'a> Cpu<'a> {
             0x8000 ..= 0xBFFF => self.ctx.cas.prog_rom_read(addr - 0x8000),
             0xC000 ..= 0xFFFF => {
                 if self.ctx.cas.prog_size <= 0x4000 {
-                    dbg!("a {addr:#X}");
                     self.ctx.cas.prog_rom_read(addr - 0xC000)
                 } else {
-                    dbg!("b {addr:#X}");
                     self.ctx.cas.prog_rom_read(addr - 0x8000)
                 }
             },
             _ => panic!("invalid addr {:#X}", addr)
         }
     }
-    fn fetch(&mut self, size: u8) -> u16{
-        let mut data: u16 = 0;
-        match size {
-            1 => {
-                data = self.bread(self.reg.pc) as u16;
-            },
-            2 => {
-                data = self.wread(self.reg.pc);
-            },
-            _ => panic!("invalid size {}", size)
-        }
-        self.reg.pc += size as u16;
+    fn bfetch(&mut self) -> u8{
+        let data: u8 = self.bread(self.reg.pc);
+        self.reg.pc += 1;
         data
     }
-    fn fetch_op(&mut self) -> fetched_op {
+    fn wfetch(&mut self) -> u16{
+        let data: u16 = self.wread(self.reg.pc);
+        self.reg.pc += 2;
+        data
+    }
+    fn fetch_op(&mut self) -> FetchedOp{
         let pc = self.reg.pc;
-        let index: u8 = self.fetch(1) as u8;
-        let op = OP_TABLE.get(&index);
-        println!("{pc:#X} {index:#X} {op:?}");
-        fetched_op { data: 0, mode: AddrModes::ABS, add_cycle: 0 }
+        let index: u8 = self.bfetch();
+        let op = OP_TABLE.get(&index).unwrap();
+        println!("{pc:#X} {index:#05X} {op:?}");
+        let mut data: u32 = 0;
+        let mut add_cycle: u8 = 0;
+        match op.mode {
+            AddrModes::ACM | AddrModes::IMPL => (),
+            AddrModes::IMD | AddrModes::ZPG => data = self.bfetch() as u32,
+            AddrModes::REL => {
+                let addr: u32 = self.wfetch() as u32;
+                data = ((addr + self.reg.pc as u32) - if addr < 0x80 {1} else {0x100}) as u32;
+            },
+            AddrModes::ZPGX => data = ((self.reg.x + self.bfetch()) & 0xFF) as u32,
+            AddrModes::ZPGY => data = ((self.reg.y + self.bfetch()) & 0xFF) as u32,
+            AddrModes::ABS => data = self.wfetch() as u32,
+            AddrModes::ABSX => {
+                let addr: u32 = self.wfetch() as u32;
+                data = self.reg.x as u32 + addr;
+                add_cycle = if ((data ^ addr) & 0xFF00) > 0 {1} else {0};
+            },
+            AddrModes::ABSY => {
+                let addr: u32 = self.wfetch() as u32;
+                data = self.reg.y as u32 + addr;
+                add_cycle = if ((data ^ addr) & 0xFF00) > 0 {1} else {0};
+            },
+            AddrModes::INDX => {
+                let baddr: u16 = (self.reg.x + self.bfetch()) as u16 & 0xFF;
+                let baddr_: u16 = (baddr + 1) & 0xFF;
+                data = self.bread(baddr) as u32 + (self.bread(baddr_) as u32) << 8;
+            },
+            AddrModes::INDY => {
+                let baddr: u16 = self.bfetch() as u16;
+                let baddr_: u16 = (baddr + 1) & 0xFF;
+                data = self.bread(baddr) as u32 + (self.bread(baddr_) as u32) << 8;
+                let data_: u32 = self.reg.y as u32;
+                add_cycle = if ((data ^ data_) & 0xFF00) > 0 {1} else {0};
+            },
+            AddrModes::ABSIND => {
+                let baddr: u16 = self.wfetch();
+                let baddr_: u16 = (baddr & 0xFF00) + (baddr + 1) & 0xFF;
+                data = self.bread(baddr) as u32 + (self.bread(baddr_) as u32) << 8;
+            },
+            _=> panic!("invelid mode {:?}", op.mode),
+        }
+        FetchedOp {
+            op: *op,
+            data: data as u16,
+            add_cycle: add_cycle,
+        }
     }
     pub fn run(&mut self) -> u16 {
         let pc = self.reg.pc;
-        let op: fetched_op = self.fetch_op();
-        0
+        let mut fetched_op: FetchedOp = self.fetch_op();
+        (fetched_op.op.cycle + fetched_op.add_cycle) as u16
     }
 }
