@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use once_cell::sync::Lazy;
 use super::Cassette;
 use super::Ram;
+use super::Context;
 
 const CARRY: u8 = 1 << 0;
 const ZERO: u8 = 1 << 1;
@@ -386,21 +387,25 @@ impl Register {
     }
 }
 
+struct fetched_op {
+    data: u16,
+    mode: AddrModes,
+    add_cycle: u8
+}
+
 #[derive(Debug)]
 pub struct Cpu<'a> {
     cycle: u8,
     reg: Register,
-    ram: &'a mut Ram,
-    cas: &'a Cassette,
+    ctx: &'a mut Context<'a>,
 }
 
 impl<'a> Cpu<'a> {
-    pub fn new(ram: &'a mut Ram, cas: &'a Cassette) -> Cpu<'a> {
+    pub fn new(ctx: &'a mut Context<'a>) -> Cpu<'a> {
         Cpu {
             cycle: 0,
             reg: Register::new(),
-            ram: ram,
-            cas: cas,
+            ctx: ctx
         }
     }
     pub fn reset(&mut self) {
@@ -415,18 +420,18 @@ impl<'a> Cpu<'a> {
     }
     fn read(&mut self, addr: u16) -> u8 {
         match addr {
-            0x0000 ..= 0x1FFF => self.ram.read(addr),
+            0x0000 ..= 0x1FFF => self.ctx.wram.read(addr),
             0x2000 ..= 0x3FFF => 0, // ppu read
             0x4016 => 0, // joypad 1
             0x4017 => 0, // joypad 1
             0x4000 ..= 0x401F => 0, // apu
             0x6000 ..= 0x7FFF => 0, // extram
-            0x8000 ..= 0xBFFF => self.cas.prog_rom_read(addr - 0x8000),
+            0x8000 ..= 0xBFFF => self.ctx.cas.prog_rom_read(addr - 0x8000),
             0xC000 ..= 0xFFFF => {
-                if self.cas.prog_size <= 0x4000 {
-                    self.cas.prog_rom_read(addr - 0xC000)
+                if self.ctx.cas.prog_size <= 0x4000 {
+                    self.ctx.cas.prog_rom_read(addr - 0xC000)
                 } else {
-                    self.cas.prog_rom_read(addr - 0x8000)
+                    self.ctx.cas.prog_rom_read(addr - 0x8000)
                 }
             },
             _ => panic!("invalid addr {:#X}", addr)
@@ -435,8 +440,12 @@ impl<'a> Cpu<'a> {
     fn fetch(&mut self) -> u8{
         0
     }
+    fn fetch_op(&mut self) -> fetched_op {
+        self.fetch();
+        fetched_op { data: (), mode: (), add_cycle: () }
+    }
     pub fn run(&mut self) -> u16 {
         let pc = self.reg.pc;
-        0
+        let op: fetched_op = self.fetch_op();
     }
 }
