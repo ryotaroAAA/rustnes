@@ -41,6 +41,7 @@ pub fn run(cassette_path: &str) {
     let mut ctx: Context = Context::new(&cas, &mut wram, &mut vram);
 
     let mut cpu: Cpu = Cpu::new(&mut ctx);
+    cpu.reset();
 
     loop {
         let cycle: u16 = cpu.run();

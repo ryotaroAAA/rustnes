@@ -30,12 +30,12 @@ impl Cassette {
         let char_rom_s: usize = prog_rom_s + prog_size;
         let prog_rom: Vec<u8> = buf[prog_rom_s..(prog_rom_s + prog_size)].to_vec();
         let char_rom: Vec<u8> = buf[char_rom_s..(char_rom_s + char_size)].to_vec();
-    
+
         let metadata = std::fs::metadata(path);
         let rom_size: u64 = metadata.unwrap().len();
 
-        println!("{:?}", &buf[..10]);
-        println!("{:?}, {:?}, {:?}", rom_size, prog_size, char_size);
+        println!("{:?}", &prog_rom[..10]);
+        println!("{:#X}, {:#X}, {:#X}", rom_size, prog_size, char_size);
         
         Cassette {
             path: path.to_string(),

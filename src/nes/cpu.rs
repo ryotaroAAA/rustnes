@@ -411,12 +411,13 @@ impl<'a> Cpu<'a> {
     pub fn reset(&mut self) {
         self.cycle = 0;
         self.reg.reset();
+        self.reg.pc = self.wread(0xFFFC);
     }
     fn bread(&mut self, addr: u16) -> u8 {
         self.read(addr)
     }
     fn wread(&mut self, addr: u16) -> u16 {
-        (self.read(addr) + (self.read(addr +1) << 8)) as u16
+        self.read(addr) as u16 + ((self.read(addr +1) as u16) << 8)
     }
     fn read(&mut self, addr: u16) -> u8 {
         match addr {
@@ -429,23 +430,40 @@ impl<'a> Cpu<'a> {
             0x8000 ..= 0xBFFF => self.ctx.cas.prog_rom_read(addr - 0x8000),
             0xC000 ..= 0xFFFF => {
                 if self.ctx.cas.prog_size <= 0x4000 {
+                    dbg!("a {addr:#X}");
                     self.ctx.cas.prog_rom_read(addr - 0xC000)
                 } else {
+                    dbg!("b {addr:#X}");
                     self.ctx.cas.prog_rom_read(addr - 0x8000)
                 }
             },
             _ => panic!("invalid addr {:#X}", addr)
         }
     }
-    fn fetch(&mut self) -> u8{
-        0
+    fn fetch(&mut self, size: u8) -> u16{
+        let mut data: u16 = 0;
+        match size {
+            1 => {
+                data = self.bread(self.reg.pc) as u16;
+            },
+            2 => {
+                data = self.wread(self.reg.pc);
+            },
+            _ => panic!("invalid size {}", size)
+        }
+        self.reg.pc += size as u16;
+        data
     }
     fn fetch_op(&mut self) -> fetched_op {
-        self.fetch();
-        fetched_op { data: (), mode: (), add_cycle: () }
+        let pc = self.reg.pc;
+        let index: u8 = self.fetch(1) as u8;
+        let op = OP_TABLE.get(&index);
+        println!("{pc:#X} {index:#X} {op:?}");
+        fetched_op { data: 0, mode: AddrModes::ABS, add_cycle: 0 }
     }
     pub fn run(&mut self) -> u16 {
         let pc = self.reg.pc;
         let op: fetched_op = self.fetch_op();
+        0
     }
 }
