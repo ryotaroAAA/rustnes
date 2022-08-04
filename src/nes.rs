@@ -46,7 +46,7 @@ pub fn run(cassette_path: &str) {
     loop {
         let cycle: u16 = cpu.run();
         count += 1;
-        if count > 100 {
+        if count > 200 {
             println!("break");
             break;
         }

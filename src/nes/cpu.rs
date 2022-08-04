@@ -10,9 +10,10 @@ use super::Context;
 
 const CARRY: u8 = 1 << 0;
 const ZERO: u8 = 1 << 1;
-const IRQ: u8 = 1 << 2;
+const INTERRUPT: u8 = 1 << 2;
 const DECIMAL: u8 = 1 << 3;
 const BREAK: u8 = 1 << 4;
+const RESERVED: u8 = 1 << 5;
 const OVERFLOW: u8 = 1 << 6;
 const NEGATIVE: u8 = 1 << 7;
 
@@ -410,6 +411,7 @@ struct FetchedOp {
 #[derive(Debug)]
 pub struct Cpu<'a> {
     cycle: u8,
+    has_branched: bool,
     reg: Register,
     ctx: &'a mut Context<'a>,
 }
@@ -418,12 +420,14 @@ impl<'a> Cpu<'a> {
     pub fn new(ctx: &'a mut Context<'a>) -> Cpu<'a> {
         Cpu {
             cycle: 0,
+            has_branched: false,
             reg: Register::new(),
             ctx: ctx
         }
     }
     pub fn reset(&mut self) {
         self.cycle = 0;
+        self.has_branched = false;
         self.reg.reset();
         self.reg.pc = self.wread(0xFFFC);
     }
@@ -483,7 +487,7 @@ impl<'a> Cpu<'a> {
             AddrModes::ACM | AddrModes::IMPL => (),
             AddrModes::IMD | AddrModes::ZPG => data = self.bfetch() as u32,
             AddrModes::REL => {
-                let addr: u32 = self.wfetch() as u32;
+                let addr: u32 = self.bfetch() as u32;
                 data = ((addr + self.reg.pc as u32) - if addr < 0x80 {1} else {0x100}) as u32;
             },
             AddrModes::ZPGX => data = ((self.reg.x + self.bfetch()) & 0xFF) as u32,
@@ -537,6 +541,32 @@ impl<'a> Cpu<'a> {
             self.reg.p &= !ZERO;
         }
     }
+    fn branch(&mut self, addr: u16) {
+        self.reg.pc = addr;
+        self.has_branched = true;
+    }
+    fn push(&mut self, data: u8) {
+        self.write(self.reg.sp & 0xFF | 0x100, data);
+        self.reg.sp -= 1;
+    }
+    fn push_pc(&mut self) {
+        self.push((self.reg.pc >> 8) as u8);
+        self.push((self.reg.pc & 0xFF) as u8);
+    }
+    fn push_reg_status(&mut self) {
+        self.push(self.reg.p);
+    }
+    fn pop(&mut self) -> u8 {
+        self.reg.sp += 1;
+        self.bread(self.reg.sp & 0xFF | 0x100)
+    }
+    fn pop_pc(&mut self) {
+        self.reg.pc = self.pop() as u16;
+        self.reg.pc += ((self.pop() as u16) << 8);
+    }
+    fn pop_reg_status(&mut self) {
+        self.reg.p = self.pop();
+    }
     fn exec(&mut self, fop: &mut FetchedOp) {
         let opcode: OpCodes = fop.op.opcode;
         let mode: AddrModes = fop.op.mode;
@@ -546,19 +576,59 @@ impl<'a> Cpu<'a> {
             // bit op
             // shift/rotation
             // conditional branch
-            OpCodes::BCS => (),
-            OpCodes::BCC => (),
-            OpCodes::BEQ => (),
-            OpCodes::BNE => (),
-            OpCodes::BMI => (),
-            OpCodes::BPL => (),
-            OpCodes::BVS => (),
-            OpCodes::BVC => (),
+            OpCodes::BCS => {
+                if (self.reg.p & CARRY) > 0 {
+                    self.branch(data);
+                }
+            },
+            OpCodes::BCC => {
+                if (self.reg.p & CARRY) == 0 {
+                    self.branch(data);
+                }
+            },
+            OpCodes::BEQ => {
+                if (self.reg.p & ZERO) > 0 {
+                    self.branch(data);
+                }
+            },
+            OpCodes::BNE => {
+                if (self.reg.p & ZERO) == 0 {
+                    self.branch(data);
+                }
+            },
+            OpCodes::BMI => {
+                if (self.reg.p & NEGATIVE) > 0 {
+                    self.branch(data);
+                }
+            },
+            OpCodes::BPL => {
+                if (self.reg.p & NEGATIVE) == 0 {
+                    self.branch(data);
+                }
+            },
+            OpCodes::BVS => {
+                if (self.reg.p & OVERFLOW) > 0 {
+                    self.branch(data);
+                }
+            },
+            OpCodes::BVC => {
+                if (self.reg.p & OVERFLOW) == 0 {
+                    self.branch(data);
+                }
+            },
             // bit check
             // jump
-            OpCodes::JMP => (),
-            OpCodes::JSR => (),
-            OpCodes::RTS => (),
+            OpCodes::JMP => self.reg.pc = data,
+            OpCodes::JSR => {
+                let pc: u16 = self.reg.pc - 1;
+                self.push((pc >> 8) as u8 & 0xFF);
+                self.push(pc as u8 & 0xFF);
+                self.reg.pc = data;
+            },
+            OpCodes::RTS => {
+                self.pop_pc();
+                self.reg.pc += 1;
+            },
             // interrupt
             // comp
             // inc/dec
@@ -589,13 +659,13 @@ impl<'a> Cpu<'a> {
                 self.set_flag_after_calc(self.reg.y);
             },
             // flag control
-            OpCodes::CLD => (),
-            OpCodes::CLC => (),
-            OpCodes::CLI => (),
-            OpCodes::CLV => (),
-            OpCodes::SEC => (),
-            OpCodes::SEI => (),
-            OpCodes::SED => (),
+            OpCodes::CLD => self.reg.p &= !DECIMAL,
+            OpCodes::CLC => self.reg.p &= !CARRY,
+            OpCodes::CLI => self.reg.p &= !INTERRUPT,
+            OpCodes::CLV => self.reg.p &= !OVERFLOW,
+            OpCodes::SEC => self.reg.p |= CARRY,
+            OpCodes::SEI => self.reg.p |= INTERRUPT,
+            OpCodes::SED => self.reg.p |= DECIMAL,
             // load
             OpCodes::LDA | OpCodes::LDX | OpCodes::LDY => {
                 let data_: u8 = match mode {
@@ -615,12 +685,29 @@ impl<'a> Cpu<'a> {
             OpCodes::STX => self.write(data, self.reg.x),
             OpCodes::STY => self.write(data, self.reg.y),
             // transfer
-            OpCodes::TAX => (),
-            OpCodes::TAY => (),
-            OpCodes::TSX => (),
-            OpCodes::TXA => (),
-            OpCodes::TXS => (),
-            OpCodes::TYA => (),
+            OpCodes::TAX => {
+                self.reg.x = self.reg.a;
+                self.set_flag_after_calc(self.reg.x);
+            },
+            OpCodes::TAY => {
+                self.reg.y = self.reg.a;
+                self.set_flag_after_calc(self.reg.y);
+            },
+            OpCodes::TSX => {
+                self.reg.x = self.reg.sp as u8;
+                self.set_flag_after_calc(self.reg.x);
+            },
+            OpCodes::TXA => {
+                self.reg.a = self.reg.x;
+                self.set_flag_after_calc(self.reg.a);
+            },
+            OpCodes::TXS => {
+                self.reg.sp = self.reg.x as u16 + 0x0100;
+            },
+            OpCodes::TYA => {
+                self.reg.a = self.reg.y;
+                self.set_flag_after_calc(self.reg.a);
+            },
             // stack
             // nop
             OpCodes::NOP => (),
