@@ -1,9 +1,11 @@
 pub mod cassette;
 pub mod cpu;
+pub mod ppu;
 pub mod ram;
 pub mod optable;
 
 use crate::nes::cpu::*;
+use crate::nes::ppu::*;
 use crate::nes::ram::Ram;
 use crate::nes::cassette::Cassette;
 
@@ -15,6 +17,7 @@ pub struct Context<'a> {
     cas: &'a Cassette,
     wram: &'a mut Ram,
     vram: &'a mut Ram,
+    image: &'a mut Image,
     // cpu: &'a mut Cpu<'a>,
 }
 
@@ -23,13 +26,14 @@ impl<'a> Context<'a> {
         cas: &'a Cassette,
         wram: &'a mut Ram,
         vram: &'a mut Ram,
+        image: &'a mut Image,
         // cpu: &'a mut Cpu<'a>
     ) -> Context<'a> {
         Context {
             cas,
             wram,
             vram,
-            // cpu
+            image,
         }
     }
 }
@@ -38,16 +42,21 @@ pub fn run(cassette_path: &str) {
     let mut wram: Ram = Ram::new(WRAM_SIZE);
     let mut vram: Ram = Ram::new(VRAM_SIZE);
     let cas: Cassette = Cassette::new(cassette_path);
-    let mut ctx: Context = Context::new(&cas, &mut wram, &mut vram);
+    let mut image: Image = Image::new();
+    let mut ctx: Context = Context::new(
+        &cas, &mut wram, &mut vram, &mut image
+    );
 
-    let mut cpu: Cpu = Cpu::new(&mut ctx);
-    let mut ppu: Ppu = Ppu::new(&mut ctx);
+    let mut cpu: Cpu =Cpu::new(
+        &ctx.cas, &mut ctx.wram);
     cpu.reset();
-    ppu.reset();
+
+    let mut ppu: Ppu = Ppu::new(
+        &cas, &mut ctx.vram, &mut ctx.image);
 
     let mut count: usize = 0;
     loop {
-        let cycle: u16 = cpu.run();
+        // let cycle: u16 = cpu.run();
         count += 1;
         if count > 200 {
             println!("break");
