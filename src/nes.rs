@@ -1,6 +1,7 @@
 pub mod cassette;
 pub mod cpu;
 pub mod ram;
+pub mod optable;
 
 use crate::nes::cpu::*;
 use crate::nes::ram::Ram;
