@@ -64,23 +64,24 @@ const NEGATIVE: u8 = 1 << 7;
     | 0x3F20-0x3FFF  |  mirror of 0x3F00-0x3F1F   |
 */
 
-const H_SIZE: usize = 256;
-const V_SIZE: usize = 240;
+pub const H_SIZE: usize = 256;
+pub const V_SIZE: usize = 240;
+pub const PALETTE_SIZE: usize = 0x20;
+pub const H_SPRITE_NUM: usize = 32;
+pub const V_SPRITE_NUM: usize = 30;
+
 const SPRITE_RAM_SIZE: usize = 0x0100;
-const PALETTE_SIZE: usize = 0x20;
 const VRAM_SIZE: usize = 0x0800;
 const TILE_SIZE: usize = 8;
-const H_SPRITE_NUM: usize = 32;
-const V_SPRITE_NUM: usize = 30;
 const V_SIZE_WITH_VBLANK: usize = 262;
 const CYCLE_PER_LINE: usize = 341;
-
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct Sprite {
-    x: u8,
-    y: u8,
-    attr: u8,
-    data: [[u8; H_SPRITE_NUM]; V_SPRITE_NUM],
+    pub x: u8,
+    pub y: u8,
+    pub attr: u8,
+    pub data: Vec<Vec<u8>>,
+    // data: [[u8; H_SPRITE_NUM]; V_SPRITE_NUM],
 }
 
 impl Sprite {
@@ -89,18 +90,18 @@ impl Sprite {
             x: 0,
             y: 0,
             attr: 0,
-            data: [[0; H_SPRITE_NUM]; V_SPRITE_NUM]
+            data: vec![vec![0; H_SPRITE_NUM]; V_SPRITE_NUM]
         }
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct Tile {
-    scroll_x: u8,
-    scroll_y: u8,
-    sprite_id: u16,
-    palette_id: u16,
-    sprite: Sprite,
+    pub scroll_x: u8,
+    pub scroll_y: u8,
+    pub sprite_id: u16,
+    pub palette_id: u16,
+    pub sprite: Sprite,
 }
 
 impl Tile {
@@ -117,16 +118,16 @@ impl Tile {
 
 #[derive(Debug)]
 pub struct Image {
-    sprite: Vec<Sprite>,
-    background: [[Tile; H_SPRITE_NUM]; V_SPRITE_NUM],
-    palette: [u8; PALETTE_SIZE],
+    pub sprite: Vec<Sprite>,
+    pub background: Vec<Vec<Tile>>,
+    pub palette: [u8; PALETTE_SIZE],
 }
 
 impl Image {
     pub fn new() -> Image {
         Image {
             sprite: Vec::new(),
-            background: [[Tile::new(); H_SPRITE_NUM]; V_SPRITE_NUM],
+            background: vec![vec![Tile::new(); H_SPRITE_NUM]; V_SPRITE_NUM],
             palette: [0; PALETTE_SIZE],
         }
     }
@@ -403,7 +404,7 @@ impl<'a> Ppu<'a> {
     // write by cpu
     fn write_vram_data(&mut self, data: u8) {
         if self.vram_addr >= 0x2000 {
-            if (self.vram_addr >= 0x3F00 && self.vram_addr < 0x4000) {
+            if self.vram_addr >= 0x3F00 && self.vram_addr < 0x4000 {
                 // pallette
                 self.palette.write(self.vram_addr - 0x3F00, data);
             } else {
@@ -435,7 +436,7 @@ impl<'a> Ppu<'a> {
         }
     }
     
-    fn build_sprite_data(&mut self, sprite_id: u16, offset: u16, sprite: &mut Sprite) {
+    fn build_sprite_data(&self, sprite_id: u16, offset: u16, sprite: &mut Sprite) {
         /*
             Bit Planes                  Pixel Pattern (return value)
             [lower bit]
@@ -471,7 +472,7 @@ impl<'a> Ppu<'a> {
         }
         // sprite
     }
-    fn build_sprites(&mut self) {
+    fn build_objects(&mut self) {
         // see https:#wiki.nesdev.com/w/index.php/PPU_OAM
         for i in 0..self.sprite_ram_addr/4 {
             let j: u16 = 4 * i as u16;
@@ -486,18 +487,38 @@ impl<'a> Ppu<'a> {
             self.image.sprite.push(sprite);
         }
     }
+    fn build_sprite_for_tile(&mut self, sprite_id: u16, offset: u16, i: u8, j: u8) {
+        let mut background = &mut self.image.background;
+        // self.build_sprite_data(sprite_id, offset,
+        //     &mut background[i as usize][j as usize].sprite);
+        
+        for i in 0..16 {
+            let addr: u16 = (sprite_id * 16 + i + offset) as u16;
+            let ram: u8 = self.char_ram.read(addr);
+
+            for j in 0..8 {
+                if ram & (0x80 >> j) > 0 {
+                    background[i as usize][j as usize].sprite.data[(i % 8) as usize][j] +=
+                        0x01 << (i/8)
+                }
+            }
+        }
+    }
     // the element of background
-    fn build_tile(&mut self, x: u8, y: u8, offset: u16, tile: &mut Tile) {
+    fn build_tile(&mut self, x: u8, y: u8, offset: u16, i: u8, j: u8) {
         let block_id: u8 = self.get_block_id(x, y);
         let sprite_id: u16 = self.get_sprite_id(x, y, offset) as u16;
         let attr: u16 = self.get_attribute(x, y, offset) as u16;
         let background_table_offset: u16 = self.get_background_table_offset();
-        tile.sprite_id = sprite_id;
-        tile.palette_id = (attr >> (block_id * 2)) as u16 & 0x03;
-        self.build_sprite_data(sprite_id,
-            background_table_offset, &mut tile.sprite);
-        tile.scroll_x = self.scroll_x;
-        tile.scroll_y = self.scroll_y;
+        // let mut background = &mut self.image.background;
+        self.image.background[i as usize][j as usize].sprite_id = sprite_id;
+        self.image.background[i as usize][j as usize].palette_id =
+            (attr >> (block_id * 2)) as u16 & 0x03;
+        // self.build_sprite_data(sprite_id, background_table_offset,
+        //     &mut self.image.background[i as usize][j as usize].sprite);
+        self.build_sprite_for_tile(sprite_id, background_table_offset, i, j);
+        self.image.background[i as usize][j as usize].scroll_x = self.scroll_x;
+        self.image.background[i as usize][j as usize].scroll_y = self.scroll_y;
     }
     // draw every 8 line
     fn build_background(&mut self) {
@@ -510,8 +531,7 @@ impl<'a> Ppu<'a> {
             let mod_x: u8 = x % H_SPRITE_NUM as u8;
             let name_table_id: u8 = (x / H_SPRITE_NUM as u8) % 2 + table_id_offset;
             let offset_addr_by_name_table: u16 = name_table_id as u16 * 0x0400;
-            let mut tile: Tile = self.image.background[i as usize][x as usize];
-            self.build_tile(mod_x, mod_y, offset_addr_by_name_table, &mut tile);
+            self.build_tile(mod_x, mod_y, offset_addr_by_name_table, i, x);
         }
         self.background_index += 1;
     }
@@ -520,8 +540,7 @@ impl<'a> Ppu<'a> {
         self.cycle += 3 * cycle;
         
         if self.line == 0 {
-            // self.background.clear();
-            // self.sprites.clear();
+            self.image.sprite.resize(0, Sprite::new());
         }
         if self.cycle >= CYCLE_PER_LINE as u16 {
             self.cycle -= CYCLE_PER_LINE as u16;
@@ -544,7 +563,7 @@ impl<'a> Ppu<'a> {
                 }
             }
             if self.line == V_SIZE_WITH_VBLANK as u16 {
-                self.build_sprites();
+                self.build_objects();
                 self.clear_vblank();
                 self.clear_sprite_hit();
                 self.line = 0;
