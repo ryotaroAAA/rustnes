@@ -6,6 +6,8 @@ use super::Cassette;
 use super::Ram;
 use super::ppu::*;
 use super::Context;
+use std::rc::*;
+use std::cell::*;
 
 const COLORS: [u64; 64] = [
     0x808080, 0x003DA6, 0x0012B0, 0x440096,
@@ -27,17 +29,22 @@ const COLORS: [u64; 64] = [
 ];
 
 #[derive(Debug)]
-pub struct Render {
+pub struct Render<'a> {
     data: Vec<Vec<u64>>,
-    image: Image
+    image: &'a Image
 }
 
-impl Render {
-    pub fn new(image: Image) -> Render {
+impl<'a> Render<'a> {
+    pub fn new(image: &Image) -> Render {
         Render {
             data: vec![vec![0; H_SIZE]; V_SIZE],
             image: image,
         }
+    }
+
+    pub fn render(&mut self) {
+        self.render_background();
+        self.render_sprite();
     }
 
     fn should_pixel_hide(&self, x: u8, y: u8) -> bool{
@@ -66,7 +73,7 @@ impl Render {
             for j in 0..8 {
                 let color_id: u8 = self.image.palette[(palette_id * 4 +
                     tile.sprite.data[i as usize][j as usize] as u16 + 0x10) as usize];
-                let x: u8 = (tile_x + j as u8 - tile.scroll_x) % H_SIZE as u8;
+                let x: u8 = (tile_x + j as u8 - tile.scroll_x);
                 let y: u8 = (tile_y + i as u8 - tile.scroll_y) % V_SIZE as u8;
                 self.data[y as usize % V_SIZE][x as usize % H_SIZE] =
                     COLORS[color_id as usize];

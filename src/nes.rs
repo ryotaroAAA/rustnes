@@ -10,6 +10,8 @@ use crate::nes::ppu::*;
 use crate::nes::render::*;
 use crate::nes::ram::Ram;
 use crate::nes::cassette::Cassette;
+use std::rc::*;
+use std::cell::*;
 
 const WRAM_SIZE: usize = 0x0800;
 const VRAM_SIZE: usize = 0x0800;
@@ -19,7 +21,7 @@ pub struct Context<'a> {
     cas: &'a Cassette,
     wram: &'a mut Ram,
     vram: &'a mut Ram,
-    image: &'a mut Image,
+    // image: RefMut<'a, Image>,
     // cpu: &'a mut Cpu<'a>,
 }
 
@@ -28,14 +30,14 @@ impl<'a> Context<'a> {
         cas: &'a Cassette,
         wram: &'a mut Ram,
         vram: &'a mut Ram,
-        image: &'a mut Image,
-        // cpu: &'a mut Cpu<'a>
+        // image: RefMut<'a, Image>,
+        // cpu: Test
     ) -> Context<'a> {
         Context {
             cas,
             wram,
             vram,
-            image,
+            // image,
         }
     }
 }
@@ -46,23 +48,30 @@ pub fn run(cassette_path: &str) {
     let cas: Cassette = Cassette::new(cassette_path);
     let mut image: Image = Image::new();
     let mut ctx: Context = Context::new(
-        &cas, &mut wram, &mut vram, &mut image
+        &cas, &mut wram, &mut vram
     );
 
-    let mut cpu: Cpu =Cpu::new(
-        &ctx.cas, &mut ctx.wram);
-    cpu.reset();
+    unsafe {
+        let mut cpu: Cpu =Cpu::new(
+            &ctx.cas, &mut ctx.wram);
+        let mut ppu: Ppu = Ppu::new(
+            &cas, &mut ctx.vram, &mut image);
+        cpu.reset();
 
-    let mut ppu: Ppu = Ppu::new(
-        &cas, &mut ctx.vram, &mut ctx.image);
-
-    let mut count: usize = 0;
-    loop {
-        let cycle: u16 = cpu.run();
-        count += 1;
-        if count > 200 {
-            println!("break");
-            break;
+        let mut count: usize = 0;
+        loop {
+            let cycle: u16 = cpu.run();
+            let is_render_ready: bool = ppu.run(cycle);
+            if is_render_ready {
+                let im = &image;
+                let mut render: Render = Render::new(im);
+                render.render();
+            }
+            count += 1;
+            if count > 200 {
+                println!("break");
+                break;
+            }
         }
     }
 }

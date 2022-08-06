@@ -7,6 +7,8 @@ use once_cell::sync::Lazy;
 use super::Cassette;
 use super::Ram;
 use super::Context;
+use std::rc::*;
+use std::cell::*;
 
 const CARRY: u8 = 1 << 0;
 const ZERO: u8 = 1 << 1;
@@ -536,7 +538,7 @@ impl<'a> Ppu<'a> {
         self.background_index += 1;
     }
     
-    fn run(&mut self, cycle: u16) {
+    pub fn run(&mut self, cycle: u16) -> bool{
         self.cycle += 3 * cycle;
         
         if self.line == 0 {
@@ -572,7 +574,9 @@ impl<'a> Ppu<'a> {
                 self.get_palette(&mut pal);
                 // self.interrupts.deassert_nmi();
                 // return self.image
+                return true;
             }
         }
+        return false;
     }
 }
