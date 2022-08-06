@@ -42,7 +42,7 @@ pub fn run(cassette_path: &str) {
     let mut wram: Ram = Ram::new(WRAM_SIZE);
     let mut vram: Ram = Ram::new(VRAM_SIZE);
     let cas: Cassette = Cassette::new(cassette_path);
-    let mut image: Image = Image::new();
+    let mut image: Image = Box::new(Image::new());
     let mut ctx: Context = Context::new(
         &cas, &mut wram, &mut vram, &mut image
     );

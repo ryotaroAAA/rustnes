@@ -1,9 +1,5 @@
 #![allow(unused_variables)]
 
-use core::panic;
-use std::collections::HashMap;
-use std::fmt;
-use once_cell::sync::Lazy;
 use super::Cassette;
 use super::Ram;
 use super::Context;
@@ -61,16 +57,18 @@ pub struct Cpu<'a> {
     cycle: u16,
     has_branched: bool,
     reg: Register,
-    ctx: &'a mut Context<'a>,
+    cas: &'a Cassette,
+    wram: &'a mut Ram,
 }
 
 impl<'a> Cpu<'a> {
-    pub fn new(ctx: &'a mut Context<'a>) -> Cpu<'a> {
+    pub fn new(cas: &'a Cassette, wram: &'a mut Ram) -> Cpu<'a> {
         Cpu {
             cycle: 0,
             has_branched: false,
             reg: Register::new(),
-            ctx: ctx
+            cas: cas,
+            wram: wram,
         }
     }
     pub fn reset(&mut self) {
@@ -87,18 +85,18 @@ impl<'a> Cpu<'a> {
     }
     fn read(&mut self, addr: u16) -> u8 {
         match addr {
-            0x0000 ..= 0x1FFF => self.ctx.wram.read(addr),
+            0x0000 ..= 0x1FFF => self.wram.read(addr),
             0x2000 ..= 0x3FFF => 0, // ppu read
             0x4016 => 0, // joypad 1
             0x4017 => 0, // joypad 1
             0x4000 ..= 0x401F => 0, // apu
             0x6000 ..= 0x7FFF => 0, // extram
-            0x8000 ..= 0xBFFF => self.ctx.cas.prog_rom_read(addr - 0x8000),
+            0x8000 ..= 0xBFFF => self.cas.prog_rom_read(addr - 0x8000),
             0xC000 ..= 0xFFFF => {
-                if self.ctx.cas.prog_size <= 0x4000 {
-                    self.ctx.cas.prog_rom_read(addr - 0xC000)
+                if self.cas.prog_size <= 0x4000 {
+                    self.cas.prog_rom_read(addr - 0xC000)
                 } else {
-                    self.ctx.cas.prog_rom_read(addr - 0x8000)
+                    self.cas.prog_rom_read(addr - 0x8000)
                 }
             },
             _ => panic!("invalid addr {:#X}", addr)
@@ -106,12 +104,12 @@ impl<'a> Cpu<'a> {
     }
     fn write(&mut self, addr: u16, data: u8) {
         match addr {
-            0x0000 ..= 0x1FFF => self.ctx.wram.write(addr, data),
+            0x0000 ..= 0x1FFF => self.wram.write(addr, data),
             0x2000 ..= 0x2007 => (), // ppu write
             0x4014 => (), // dma 
             0x4016 => (), // keypad 1p
             0x4017 => (), // keypad 2p
-            0x6000 ..= 0x7FFF => self.ctx.wram.write(addr - 0x8000, data),
+            0x6000 ..= 0x7FFF => self.wram.write(addr - 0x8000, data),
             _ => panic!("invalid addr {:#X}", addr)
         }
     }
@@ -210,7 +208,7 @@ impl<'a> Cpu<'a> {
     }
     fn pop_pc(&mut self) {
         self.reg.pc = self.pop() as u16;
-        self.reg.pc += ((self.pop() as u16) << 8);
+        self.reg.pc += (self.pop() as u16) << 8;
     }
     fn pop_reg_status(&mut self) {
         self.reg.p = self.pop();
