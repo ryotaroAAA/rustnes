@@ -46,32 +46,28 @@ pub fn run(cassette_path: &str) {
     let mut wram: Ram = Ram::new(WRAM_SIZE);
     let mut vram: Ram = Ram::new(VRAM_SIZE);
     let cas: Cassette = Cassette::new(cassette_path);
-    let mut image: Image = Image::new();
+    // let mut image: Image = Image::new();
     let mut ctx: Context = Context::new(
         &cas, &mut wram, &mut vram
     );
 
-    unsafe {
-        let mut cpu: Cpu =Cpu::new(
-            &ctx.cas, &mut ctx.wram);
-        let mut ppu: Ppu = Ppu::new(
-            &cas, &mut ctx.vram, &mut image);
-        cpu.reset();
+    let mut cpu: Cpu =Cpu::new(&ctx.cas, &mut ctx.wram);
+    let mut ppu: Ppu = Ppu::new(&cas, &mut ctx.vram);
+    cpu.reset();
 
-        let mut count: usize = 0;
-        loop {
-            let cycle: u16 = cpu.run();
-            let is_render_ready: bool = ppu.run(cycle);
-            if is_render_ready {
-                let im = &image;
-                let mut render: Render = Render::new(im);
-                render.render();
-            }
-            count += 1;
-            if count > 200 {
-                println!("break");
-                break;
-            }
+    let mut count: usize = 0;
+    loop {
+        let cycle: u16 = cpu.run();
+        let is_render_ready: bool = ppu.run(cycle);
+        
+        if is_render_ready {
+            let mut render: Render = Render::new(&ppu.image);
+            render.render();
+        }
+        count += 1;
+        if count > 200 {
+            println!("break");
+            break;
         }
     }
 }

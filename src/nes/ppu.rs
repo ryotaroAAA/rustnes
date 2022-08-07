@@ -207,11 +207,11 @@ pub struct Ppu<'a> {
     sprite_ram: Ram,
     char_ram: Ram,
     vram: &'a mut Ram,
-    image: &'a mut Image,
+    pub image: Image,
 }
 
 impl<'a> Ppu<'a> {
-    pub fn new(cas: &Cassette, vram: &'a mut Ram, image: &'a mut Image) -> Ppu<'a> {
+    pub fn new(cas: &Cassette, vram: &'a mut Ram) -> Ppu<'a> {
         let mut char_ram = Ram::new(cas.char_size);
         for i in 0..cas.char_size {
             char_ram.data[i] = cas.char_rom[i];
@@ -235,7 +235,7 @@ impl<'a> Ppu<'a> {
             sprite_ram: Ram::new(SPRITE_RAM_SIZE),
             char_ram: char_ram,
             vram: vram,
-            image: image,
+            image: Image::new(),
         }
     }
     // Control Register 1, PPU memory increment
