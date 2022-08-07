@@ -30,7 +30,7 @@ const COLORS: [u64; 64] = [
 
 #[derive(Debug)]
 pub struct Render<'a> {
-    data: Vec<Vec<u64>>,
+    pub data: Vec<Vec<u64>>,
     image: &'a Image
 }
 
@@ -66,7 +66,11 @@ impl<'a> Render<'a> {
     }
 
     fn render_tile(&mut self, sprite_x: u8, sprite_y: u8, tile_x: u8, tile_y: u8) {
-        let tile:&Tile = &self.image.background[sprite_y as usize][sprite_x as usize];
+        // dbg!(sprite_x, sprite_y);
+        // dbg!(sprite_x, sprite_y, tile_x, tile_y);
+        let tile:&Tile = &self
+            .image
+            .background[sprite_x as usize][sprite_y as usize];
         let palette_id: u16 = tile.palette_id;
         // let data = tile.sprite.data;
         for i in 0..8 {

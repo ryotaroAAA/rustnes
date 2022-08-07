@@ -9,4 +9,4 @@ edition = "2021"
 once_cell = "1.13.0"
 
 [dependencies.yaml-rust]
-git = "https://github.com/chyh1990/yaml-rust.git"
+sdl2 = "0.35"

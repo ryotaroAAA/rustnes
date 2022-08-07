@@ -71,8 +71,7 @@ pub const V_SIZE: usize = 240;
 pub const PALETTE_SIZE: usize = 0x20;
 pub const H_SPRITE_NUM: usize = 32;
 pub const V_SPRITE_NUM: usize = 30;
-
-const SPRITE_RAM_SIZE: usize = 0x0100;
+pub const SPRITE_RAM_SIZE: usize = 0x0100;
 const VRAM_SIZE: usize = 0x0800;
 const TILE_SIZE: usize = 8;
 const V_SIZE_WITH_VBLANK: usize = 262;
@@ -92,7 +91,7 @@ impl Sprite {
             x: 0,
             y: 0,
             attr: 0,
-            data: vec![vec![0; H_SPRITE_NUM]; V_SPRITE_NUM]
+            data: vec![vec![0; 8]; 8]
         }
     }
 }
@@ -348,7 +347,7 @@ impl<'a> Ppu<'a> {
         }
         return self.vram_buf as u8;
     }
-    fn read(&mut self, addr: u16) -> u8 {
+    pub fn read(&mut self, addr: u16) -> u8 {
         /*
         | bit  | description                                 |
         +------+---------------------------------------------+
@@ -358,6 +357,7 @@ impl<'a> Ppu<'a> {
         | 4-0  | invalid                                     |                                 
         |      | bit4 VRAM write flag [0: success, 1: fail]  |
         */
+        dbg!(addr);
         match addr {
             0x0002 => {
                 // PPUSTATUS
@@ -377,10 +377,11 @@ impl<'a> Ppu<'a> {
             _ => panic!("invalid addr {:#X}", addr)
         }
     }
-    fn write_sprite_ram_addr(&mut self, data: u8) {
+    pub fn write_sprite_ram_addr(&mut self, data: u8) {
+        dbg!(data);
         self.sprite_ram_addr = data as u16;
     }
-    fn write_sprite_ram_data(&mut self, data: u8) {
+    pub fn write_sprite_ram_data(&mut self, data: u8) {
         self.sprite_ram.write(self.sprite_ram_addr, data);
         self.sprite_ram_addr += 1;
     }
@@ -420,7 +421,8 @@ impl<'a> Ppu<'a> {
         }
         self.vram_addr += self.get_vram_offset() as u16;
     }
-    fn write(&mut self, addr: u16, data: u8) {
+    pub fn write(&mut self, addr: u16, data: u8) {
+        println!("{} {}", addr, data);
         match addr {
             0x0000 => self.creg1 = data,
             0x0001 => self.creg2 = data,
@@ -472,12 +474,21 @@ impl<'a> Ppu<'a> {
                 }
             }
         }
+        // for a in &sprite.data{
+        //     for b in a.iter(){
+        //         let val = if *b > 0 {1} else {0};
+        //         print!("{:?}", val);
+        //     }
+        //     print!("\n");
+        // }
         // sprite
     }
     fn build_objects(&mut self) {
         // see https:#wiki.nesdev.com/w/index.php/PPU_OAM
+        dbg!(self.sprite_ram_addr);
         for i in 0..self.sprite_ram_addr/4 {
             let j: u16 = 4 * i as u16;
+            dbg!(i, j);
             let mut sprite: Sprite = Sprite::new();
             sprite.y = self.sprite_ram.read(j);
             let sprite_id: u16 = self.sprite_ram.read(j + 1) as u16;
@@ -489,7 +500,7 @@ impl<'a> Ppu<'a> {
             self.image.sprite.push(sprite);
         }
     }
-    fn build_sprite_for_tile(&mut self, sprite_id: u16, offset: u16, i: u8, j: u8) {
+    fn build_sprite_for_tile(&mut self, sprite_id: u16, offset: u16, x: u8, y: u8) {
         let mut background = &mut self.image.background;
         // self.build_sprite_data(sprite_id, offset,
         //     &mut background[i as usize][j as usize].sprite);
@@ -500,9 +511,22 @@ impl<'a> Ppu<'a> {
 
             for j in 0..8 {
                 if ram & (0x80 >> j) > 0 {
-                    background[i as usize][j as usize].sprite.data[(i % 8) as usize][j] +=
-                        0x01 << (i/8)
+                    background[x as usize][y as usize].sprite.data[(i % 8) as usize][j] +=
+                        0x01 << (i/8);
+                    // if 0x01 << (i/8) > 0 {
+                    //     panic!("{} {}", x, y)
+                    // }
                 }
+            }
+        }
+        println!("{}", sprite_id);
+        if sprite_id > 0 {
+            for a in &background[x as usize][y as usize].sprite.data {
+                for b in a.iter(){
+                    let val = if *b > 0 {1} else {0};
+                    print!("{:?}", val);
+                }
+                print!("\n");
             }
         }
     }
@@ -553,7 +577,8 @@ impl<'a> Ppu<'a> {
             }
             if self.line <= V_SIZE as u16 &&
                     !(self.line % TILE_SIZE as u16 > 0) &&
-                    !(self.line % TILE_SIZE as u16 == 0) {
+                    (self.line % TILE_SIZE as u16 == 0) {
+                dbg!();
                 self.build_background();
             }
             
@@ -565,10 +590,13 @@ impl<'a> Ppu<'a> {
                 }
             }
             if self.line == V_SIZE_WITH_VBLANK as u16 {
+                dbg!(self.cycle, self.line);
                 self.build_objects();
                 self.clear_vblank();
                 self.clear_sprite_hit();
                 self.line = 0;
+                self.background_index = 0;
+
 
                 let mut pal: [u8; PALETTE_SIZE] = self.image.palette;
                 self.get_palette(&mut pal);

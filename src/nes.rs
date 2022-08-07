@@ -51,21 +51,30 @@ pub fn run(cassette_path: &str) {
         &cas, &mut wram, &mut vram
     );
 
-    let mut cpu: Cpu =Cpu::new(&ctx.cas, &mut ctx.wram);
     let mut ppu: Ppu = Ppu::new(&cas, &mut ctx.vram);
-    cpu.reset();
+    let mut cpu: Cpu = Cpu::new(&ctx.cas, &mut ctx.wram);
+    cpu.reset(&mut ppu);
 
     let mut count: usize = 0;
     loop {
-        let cycle: u16 = cpu.run();
+        let cycle: u16 = cpu.run(&mut ppu);
         let is_render_ready: bool = ppu.run(cycle);
         
         if is_render_ready {
             let mut render: Render = Render::new(&ppu.image);
             render.render();
+            // println!();
+            dbg!();
+            for a in &render.data{
+                for b in a.iter(){
+                    let val = if *b > 0 {1} else {0};
+                    print!("{:?}", val);
+                }
+                print!("\n");
+            }
         }
         count += 1;
-        if count > 200 {
+        if count > 10000 {
             println!("break");
             break;
         }

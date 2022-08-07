@@ -4,6 +4,7 @@ use super::Cassette;
 use super::Ram;
 use super::Context;
 use super::optable::{AddrModes, OpCodes, OpInfo, OP_TABLE};
+use super::ppu::*;
 
 const CARRY: u8 = 1 << 0;
 const ZERO: u8 = 1 << 1;
@@ -71,22 +72,22 @@ impl<'a> Cpu<'a> {
             wram: wram,
         }
     }
-    pub fn reset(&mut self) {
+    pub fn reset(&mut self, ppu:&mut Ppu) {
         self.cycle = 0;
         self.has_branched = false;
         self.reg.reset();
-        self.reg.pc = self.wread(0xFFFC);
+        self.reg.pc = self.wread(ppu, 0xFFFC);
     }
-    fn bread(&mut self, addr: u16) -> u8 {
-        self.read(addr)
+    fn bread(&mut self, ppu: &mut Ppu, addr: u16) -> u8 {
+        self.read(ppu, addr)
     }
-    fn wread(&mut self, addr: u16) -> u16 {
-        self.read(addr) as u16 + ((self.read(addr +1) as u16) << 8)
+    fn wread(&mut self, ppu: &mut Ppu, addr: u16) -> u16 {
+        self.read(ppu, addr) as u16 + ((self.read(ppu, addr +1) as u16) << 8)
     }
-    fn read(&mut self, addr: u16) -> u8 {
+    fn read(&mut self, ppu: &mut Ppu, addr: u16) -> u8 {
         match addr {
             0x0000 ..= 0x1FFF => self.wram.read(addr),
-            0x2000 ..= 0x3FFF => 0, // ppu read
+            0x2000 ..= 0x3FFF => ppu.read((addr - 0x2000) % 8), // ppu read
             0x4016 => 0, // joypad 1
             0x4017 => 0, // joypad 1
             0x4000 ..= 0x401F => 0, // apu
@@ -102,69 +103,75 @@ impl<'a> Cpu<'a> {
             _ => panic!("invalid addr {:#X}", addr)
         }
     }
-    fn write(&mut self, addr: u16, data: u8) {
+    fn write(&mut self, ppu: &mut Ppu, addr: u16, data: u8) {
         match addr {
             0x0000 ..= 0x1FFF => self.wram.write(addr, data),
-            0x2000 ..= 0x2007 => (), // ppu write
-            0x4014 => (), // dma 
+            0x2000 ..= 0x2007 => ppu.write(addr - 0x2000, data), // ppu write
+            0x4014 => {
+                let ram_addr_s: u16 = (data * SPRITE_RAM_SIZE as u8) as u16;
+                ppu.write_sprite_ram_addr(0);
+                for i in 0..SPRITE_RAM_SIZE {
+                    ppu.write_sprite_ram_data(self.wram.read(ram_addr_s + i as u16));
+                }
+            }, // dma 
             0x4016 => (), // keypad 1p
             0x4017 => (), // keypad 2p
             0x6000 ..= 0x7FFF => self.wram.write(addr - 0x8000, data),
             _ => panic!("invalid addr {:#X}", addr)
         }
     }
-    fn bfetch(&mut self) -> u8{
-        let data: u8 = self.bread(self.reg.pc);
+    fn bfetch(&mut self, ppu: &mut Ppu) -> u8{
+        let data: u8 = self.bread(ppu, self.reg.pc);
         self.reg.pc += 1;
         data
     }
-    fn wfetch(&mut self) -> u16{
-        let data: u16 = self.wread(self.reg.pc);
+    fn wfetch(&mut self, ppu: &mut Ppu) -> u16{
+        let data: u16 = self.wread(ppu, self.reg.pc);
         self.reg.pc += 2;
         data
     }
-    fn fetch_op(&mut self) -> FetchedOp{
+    fn fetch_op(&mut self, ppu: &mut Ppu) -> FetchedOp{
         let pc = self.reg.pc;
-        let index: u8 = self.bfetch();
+        let index: u8 = self.bfetch(ppu);
         let op = OP_TABLE.get(&index).unwrap();
         let mut data: u32 = 0;
         let mut add_cycle: u8 = 0;
         match op.mode {
             AddrModes::ACM | AddrModes::IMPL => (),
-            AddrModes::IMD | AddrModes::ZPG => data = self.bfetch() as u32,
+            AddrModes::IMD | AddrModes::ZPG => data = self.bfetch(ppu) as u32,
             AddrModes::REL => {
-                let addr: u32 = self.bfetch() as u32;
+                let addr: u32 = self.bfetch(ppu) as u32;
                 data = ((addr + self.reg.pc as u32) - if addr < 0x80 {1} else {0x100}) as u32;
             },
-            AddrModes::ZPGX => data = ((self.reg.x + self.bfetch()) & 0xFF) as u32,
-            AddrModes::ZPGY => data = ((self.reg.y + self.bfetch()) & 0xFF) as u32,
-            AddrModes::ABS => data = self.wfetch() as u32,
+            AddrModes::ZPGX => data = ((self.reg.x + self.bfetch(ppu)) & 0xFF) as u32,
+            AddrModes::ZPGY => data = ((self.reg.y + self.bfetch(ppu)) & 0xFF) as u32,
+            AddrModes::ABS => data = self.wfetch(ppu) as u32,
             AddrModes::ABSX => {
-                let addr: u32 = self.wfetch() as u32;
+                let addr: u32 = self.wfetch(ppu) as u32;
                 data = self.reg.x as u32 + addr;
                 add_cycle = if ((data ^ addr) & 0xFF00) > 0 {1} else {0};
             },
             AddrModes::ABSY => {
-                let addr: u32 = self.wfetch() as u32;
+                let addr: u32 = self.wfetch(ppu) as u32;
                 data = self.reg.y as u32 + addr;
                 add_cycle = if ((data ^ addr) & 0xFF00) > 0 {1} else {0};
             },
             AddrModes::INDX => {
-                let baddr: u16 = (self.reg.x + self.bfetch()) as u16 & 0xFF;
+                let baddr: u16 = (self.reg.x + self.bfetch(ppu)) as u16 & 0xFF;
                 let baddr_: u16 = (baddr + 1) & 0xFF;
-                data = self.bread(baddr) as u32 + (self.bread(baddr_) as u32) << 8;
+                data = self.bread(ppu, baddr) as u32 + (self.bread(ppu, baddr_) as u32) << 8;
             },
             AddrModes::INDY => {
-                let baddr: u16 = self.bfetch() as u16;
+                let baddr: u16 = self.bfetch(ppu) as u16;
                 let baddr_: u16 = (baddr + 1) & 0xFF;
-                data = self.bread(baddr) as u32 + (self.bread(baddr_) as u32) << 8;
+                data = self.bread(ppu, baddr) as u32 + (self.bread(ppu, baddr_) as u32) << 8;
                 let data_: u32 = self.reg.y as u32;
                 add_cycle = if ((data ^ data_) & 0xFF00) > 0 {1} else {0};
             },
             AddrModes::ABSIND => {
-                let baddr: u16 = self.wfetch();
+                let baddr: u16 = self.wfetch(ppu);
                 let baddr_: u16 = (baddr & 0xFF00) + (baddr + 1) & 0xFF;
-                data = self.bread(baddr) as u32 + (self.bread(baddr_) as u32) << 8;
+                data = self.bread(ppu, baddr) as u32 + (self.bread(ppu, baddr_) as u32) << 8;
             },
             _=> panic!("invelid mode {:?}", op.mode),
         }
@@ -191,29 +198,29 @@ impl<'a> Cpu<'a> {
         self.reg.pc = addr;
         self.has_branched = true;
     }
-    fn push(&mut self, data: u8) {
-        self.write(self.reg.sp & 0xFF | 0x100, data);
+    fn push(&mut self, ppu: &mut Ppu, data: u8) {
+        self.write(ppu, self.reg.sp & 0xFF | 0x100, data);
         self.reg.sp -= 1;
     }
-    fn push_pc(&mut self) {
-        self.push((self.reg.pc >> 8) as u8);
-        self.push((self.reg.pc & 0xFF) as u8);
+    fn push_pc(&mut self, ppu: &mut Ppu) {
+        self.push(ppu, (self.reg.pc >> 8) as u8);
+        self.push(ppu, (self.reg.pc & 0xFF) as u8);
     }
-    fn push_reg_status(&mut self) {
-        self.push(self.reg.p);
+    fn push_reg_status(&mut self, ppu: &mut Ppu) {
+        self.push(ppu, self.reg.p);
     }
-    fn pop(&mut self) -> u8 {
+    fn pop(&mut self, ppu: &mut Ppu) -> u8 {
         self.reg.sp += 1;
-        self.bread(self.reg.sp & 0xFF | 0x100)
+        self.bread(ppu, self.reg.sp & 0xFF | 0x100)
     }
-    fn pop_pc(&mut self) {
-        self.reg.pc = self.pop() as u16;
-        self.reg.pc += (self.pop() as u16) << 8;
+    fn pop_pc(&mut self, ppu: &mut Ppu) {
+        self.reg.pc = self.pop(ppu) as u16;
+        self.reg.pc += (self.pop(ppu) as u16) << 8;
     }
-    fn pop_reg_status(&mut self) {
-        self.reg.p = self.pop();
+    fn pop_reg_status(&mut self, ppu: &mut Ppu) {
+        self.reg.p = self.pop(ppu);
     }
-    fn exec(&mut self, fop: &mut FetchedOp) {
+    fn exec(&mut self, ppu: &mut Ppu, fop: &mut FetchedOp) {
         let opcode: OpCodes = fop.op.opcode;
         let mode: AddrModes = fop.op.mode;
         let data: u16 = fop.data;
@@ -267,20 +274,20 @@ impl<'a> Cpu<'a> {
             OpCodes::JMP => self.reg.pc = data,
             OpCodes::JSR => {
                 let pc: u16 = self.reg.pc - 1;
-                self.push((pc >> 8) as u8 & 0xFF);
-                self.push(pc as u8 & 0xFF);
+                self.push(ppu, (pc >> 8) as u8 & 0xFF);
+                self.push(ppu, pc as u8 & 0xFF);
                 self.reg.pc = data;
             },
             OpCodes::RTS => {
-                self.pop_pc();
+                self.pop_pc(ppu);
                 self.reg.pc += 1;
             },
             // interrupt
             // comp
             // inc/dec
             OpCodes::INC => {
-                let data_ :u8 = (self.bread(data) as u16 + 1) as u8;
-                self.write(data, data_);
+                let data_ :u8 = (self.bread(ppu, data) as u16 + 1) as u8;
+                self.write(ppu, data, data_);
                 self.set_flag_after_calc(data_);
             },
             OpCodes::INX => {
@@ -292,8 +299,8 @@ impl<'a> Cpu<'a> {
                 self.set_flag_after_calc(self.reg.y);
             },
             OpCodes::DEC => {
-                let data_ :u8 = self.bread(data) - 1;
-                self.write(data, data_);
+                let data_ :u8 = self.bread(ppu, data) - 1;
+                self.write(ppu, data, data_);
                 self.set_flag_after_calc(data_);
             },
             OpCodes::DEX => {
@@ -316,7 +323,7 @@ impl<'a> Cpu<'a> {
             OpCodes::LDA | OpCodes::LDX | OpCodes::LDY => {
                 let data_: u8 = match mode {
                     AddrModes::IMD => data as u8,
-                    _ => self.bread(data)
+                    _ => self.bread(ppu, data)
                 };
                 match opcode {
                     OpCodes::LDA => self.reg.a = data_,
@@ -327,9 +334,9 @@ impl<'a> Cpu<'a> {
                 self.set_flag_after_calc(data_);
             },
             // store
-            OpCodes::STA => self.write(data, self.reg.a),
-            OpCodes::STX => self.write(data, self.reg.x),
-            OpCodes::STY => self.write(data, self.reg.y),
+            OpCodes::STA => self.write(ppu, data, self.reg.a),
+            OpCodes::STX => self.write(ppu, data, self.reg.x),
+            OpCodes::STY => self.write(ppu, data, self.reg.y),
             // transfer
             OpCodes::TAX => {
                 self.reg.x = self.reg.a;
@@ -364,14 +371,14 @@ impl<'a> Cpu<'a> {
     fn show_op(&self, fop: &FetchedOp) {
         let i: u8 = fop.index;
         let op: OpInfo = fop.op;
-        println!("{:04} {:#05X} {:3} {:4} {:04X} A:{:02X} X:{:02X} Y:{:02X} P:{:02X} SP:{:04X} ",
+        println!("{:04} {:#05X} {:3} {:4} {:04X} A:{:02X} X:{:02X} Y:{:02X} P:{:02X} SP:{:04X} {}",
             i, self.reg.pc, op.opcode.to_string(), op.mode.to_string(), fop.data,
-            self.reg.a, self.reg.x, self.reg.y, self.reg.p, self.reg.sp);
+            self.reg.a, self.reg.x, self.reg.y, self.reg.p, self.reg.sp, self.cycle);
     }
-    pub fn run(&mut self) -> u16 {
-        let mut fetched_op: FetchedOp = self.fetch_op();
-        self.show_op(&fetched_op);
-        self.exec(&mut fetched_op);
+    pub fn run(&mut self, ppu: &mut Ppu) -> u16 {
+        let mut fetched_op: FetchedOp = self.fetch_op(ppu);
+        // self.show_op(&fetched_op);
+        self.exec(ppu, &mut fetched_op);
         let cycle: u16 = 
             (fetched_op.op.cycle + fetched_op.add_cycle) as u16;
         self.cycle += cycle;
