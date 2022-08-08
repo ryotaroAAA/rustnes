@@ -3,9 +3,14 @@ pub mod cpu;
 pub mod ppu;
 pub mod render;
 pub mod ram;
+pub mod video;
 pub mod optable;
 
+extern crate sdl2;
+
+use sdl2::*;
 use crate::nes::cpu::*;
+use crate::nes::video::*;
 use crate::nes::ppu::*;
 use crate::nes::render::*;
 use crate::nes::ram::Ram;
@@ -55,6 +60,9 @@ pub fn run(cassette_path: &str) {
     let mut cpu: Cpu = Cpu::new(&ctx.cas, &mut ctx.wram);
     cpu.reset(&mut ppu);
 
+    let mut video: Video = Video::new(4).unwrap();
+    let mut render: Render = Render::new();
+
     let mut count: usize = 0;
     loop {
         let cycle: u16 = cpu.run(&mut ppu);
@@ -62,17 +70,8 @@ pub fn run(cassette_path: &str) {
         
         if is_render_ready {
             println!("{:?}", ppu.image.palette);
-            let mut render: Render = Render::new(&ppu.image);
-            render.render();
-            // println!();
-            dbg!();
-            for a in &render.data{
-                for b in a.iter(){
-                    print!("{}", if *b > 0x050505 {"#"} else {" "});
-                }
-                print!("\n");
-            }
-            
+            render.render(&ppu.image);
+            _ = video.run(&render.data);
         }
         count += 1;
         if count > 10000 {

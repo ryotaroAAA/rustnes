@@ -29,50 +29,44 @@ const COLORS: [u64; 64] = [
 ];
 
 #[derive(Debug)]
-pub struct Render<'a> {
+pub struct Render {
     pub data: Vec<Vec<u64>>,
-    image: &'a Image
 }
 
-impl<'a> Render<'a> {
-    pub fn new(image: &Image) -> Render {
+impl Render {
+    pub fn new() -> Render {
         Render {
             data: vec![vec![0; H_SIZE]; V_SIZE],
-            image: image,
         }
     }
 
-    pub fn render(&mut self) {
-        println!("{:?}", self.image.palette);
+    pub fn render(&mut self, image: &Image) {
+        println!("{:?}", image.palette);
 
-        self.render_background();
-        self.render_sprite();
+        self.render_background(image);
+        self.render_sprite(image);
     }
 
-    fn should_pixel_hide(&self, x: u8, y: u8) -> bool{
+    fn should_pixel_hide(&self, image: &Image, x: u8, y: u8) -> bool{
         let tile_x: u8 = x / 8;
         let tile_y: u8 = y / 8;
         // let index: u8 = tile_y * 32 + tile_x;
-        self.image.background[tile_y as usize][tile_x as usize]
+        image.background[tile_y as usize][tile_x as usize]
             .sprite.data[y as usize][x as usize] > 0
     }
 
-    fn render_background(&mut self) {
+    fn render_background(&mut self, image: &Image) {
         for i in 0..V_SPRITE_NUM {
             for j in 0..H_SPRITE_NUM {
                 let x: u8 = j as u8 * 8;
                 let y: u8 = i as u8 * 8;
-                dbg!(x, y);
-                self.render_tile(i as u8, j as u8, x, y);
+                self.render_tile(image, i as u8, j as u8, x, y);
             }
         }
     }
 
-    fn render_tile(&mut self, sprite_x: u8, sprite_y: u8, tile_x: u8, tile_y: u8) {
-        // dbg!(sprite_x, sprite_y);
-        // dbg!(sprite_x, sprite_y, tile_x, tile_y);
-        let tile:&Tile = &self
-            .image
+    fn render_tile(&mut self, image: &Image, sprite_x: u8, sprite_y: u8, tile_x: u8, tile_y: u8) {
+        let tile:&Tile = &image
             .background[sprite_x as usize][sprite_y as usize];
         // if tile.sprite_id > 0 {
         //     dbg!();
@@ -91,7 +85,7 @@ impl<'a> Render<'a> {
             for j in 0..8 {
                 let id: u16 = (palette_id * 4 +
                     tile.sprite.data[i as usize][j as usize] as u16);
-                let color_id: u8 = self.image.palette[(palette_id * 4 +
+                let color_id: u8 = image.palette[(palette_id * 4 +
                     tile.sprite.data[i as usize][j as usize] as u16) as usize];
                 let x: u8 = (tile_x + j as u8 - tile.scroll_x);
                 let y: u8 = (tile_y + i as u8 - tile.scroll_y) % V_SIZE as u8;
@@ -106,9 +100,9 @@ impl<'a> Render<'a> {
         }
     }
 
-    fn render_sprite(&mut self) {
-        for sprite in self.image.sprite.iter() {
-            let palette:[u8; PALETTE_SIZE] = self.image.palette;
+    fn render_sprite(&mut self, image: &Image) {
+        for sprite in image.sprite.iter() {
+            let palette:[u8; PALETTE_SIZE] = image.palette;
             let is_vertical_reverse = sprite.attr & 0x80 > 0;
             let is_horizontal_reverse = sprite.attr & 0x40 > 0;
             let is_low_priority = sprite.attr & 0x20 > 0;
@@ -118,7 +112,7 @@ impl<'a> Render<'a> {
                 for j in 0..8 {
                     let x = sprite.x + if is_horizontal_reverse {7-j} else {j};
                     let y = sprite.y + if is_horizontal_reverse {7-i} else {i};
-                    if is_low_priority && self.should_pixel_hide(x, y) {
+                    if is_low_priority && self.should_pixel_hide(image, x, y) {
                         continue;
                     }
                     if sprite.data[i as usize][j as usize] > 0 {
