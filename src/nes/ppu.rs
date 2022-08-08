@@ -191,7 +191,7 @@ impl Palette {
 
 #[derive(Debug)]
 pub struct Ppu<'a> {
-    cycle: u16,
+    cycle: u64,
     line: u16,
     background_index: u8,
     vram_buf: u16,
@@ -468,6 +468,12 @@ impl<'a> Ppu<'a> {
 
             see https:#wiki.nesdev.com/w/index.php/PPU_pattern_tables
         */
+        for i in 0..8 {
+            for j in 0..8 {
+                sprite.data[i][j] = 0;
+            }
+        }
+        
         for i in 0..16 {
             let addr: u16 = (sprite_id * 16 + i + offset) as u16;
             let ram: u8 = self.char_ram.read(addr);
@@ -489,7 +495,6 @@ impl<'a> Ppu<'a> {
     }
     fn build_objects(&mut self) {
         // see https:#wiki.nesdev.com/w/index.php/PPU_OAM
-        dbg!(self.sprite_ram_addr);
         for i in 0..self.sprite_ram_addr/4 {
             let j: u16 = 4 * i as u16;
             dbg!(i, j);
@@ -505,10 +510,15 @@ impl<'a> Ppu<'a> {
         }
     }
     fn build_sprite_for_tile(&mut self, sprite_id: u16, offset: u16, x: u8, y: u8) {
-        let mut background = &mut self.image.background;
+        let background = &mut self.image.background;
         // self.build_sprite_data(sprite_id, offset,
         //     &mut background[i as usize][j as usize].sprite);
-        
+        for i in 0..8 {
+            for j in 0..8 {
+                background[x as usize][y as usize]
+                    .sprite.data[i][j] = 0;
+            }
+        }
         for i in 0..16 {
             let addr: u16 = (sprite_id * 16 + i + offset) as u16;
             let ram: u8 = self.char_ram.read(addr);
@@ -517,9 +527,6 @@ impl<'a> Ppu<'a> {
                 if ram & (0x80 >> j) > 0 {
                     background[x as usize][y as usize].sprite.data[(i % 8) as usize][j] +=
                         0x01 << (i/8);
-                    // if 0x01 << (i/8) > 0 {
-                    //     panic!("{} {}", x, y)
-                    // }
                 }
             }
         }
@@ -566,14 +573,14 @@ impl<'a> Ppu<'a> {
         self.background_index += 1;
     }
     
-    pub fn run(&mut self, cycle: u16) -> bool{
+    pub fn run(&mut self, cycle: u64) -> bool{
         self.cycle += 3 * cycle;
         
         if self.line == 0 {
             self.image.sprite.resize(0, Sprite::new());
         }
-        if self.cycle >= CYCLE_PER_LINE as u16 {
-            self.cycle -= CYCLE_PER_LINE as u16;
+        if self.cycle >= CYCLE_PER_LINE as u64 {
+            self.cycle -= CYCLE_PER_LINE as u64;
             self.line += 1;
 
             if self.has_sprite_hit() {
@@ -600,7 +607,6 @@ impl<'a> Ppu<'a> {
                 self.background_index = 0;
 
                 self.get_palette();
-                println!("##{:?}", self.image.palette);
                 // self.interrupts.deassert_nmi();
                 // return self.image
                 return true;

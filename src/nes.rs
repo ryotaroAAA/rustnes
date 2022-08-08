@@ -65,18 +65,17 @@ pub fn run(cassette_path: &str) {
 
     let mut count: usize = 0;
     loop {
-        let cycle: u16 = cpu.run(&mut ppu);
+        let cycle: u64 = cpu.run(&mut ppu);
         let is_render_ready: bool = ppu.run(cycle);
         
         if is_render_ready {
-            println!("{:?}", ppu.image.palette);
             render.render(&ppu.image);
             _ = video.run(&render.data);
         }
         count += 1;
         if count > 10000 {
-            println!("break");
-            break;
+            // println!("break");
+            // break;
         }
     }
 }

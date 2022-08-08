@@ -20,7 +20,7 @@ use sdl2::video::*;
 use sdl2::pixels::Color;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
-// use sdl2::gfx::framerate::FPSManager;
+use sdl2::gfx::framerate::FPSManager;
 
 
 pub const PAD_DELAY: usize = 10;
@@ -49,7 +49,6 @@ impl Video {
           .build()
           .map_err(|e| e.to_string())?;
       
-        // let fps_manager = FPSManager::new();
         canvas.set_draw_color(Color::RGB(0, 0, 0));
         canvas.clear();
         canvas.present();
@@ -65,14 +64,14 @@ impl Video {
         &mut self, data: &Vec<Vec<u64>>)
     -> Result<(), Box<dyn std::error::Error>> {
         let mut count: u128 = 0;
-        'mainloop: loop {
+        // 'mainloop: loop {
             for event in self.sdl_context.event_pump()?.poll_iter() {
                 match event {
                 Event::Quit { .. }
                 | Event::KeyDown {
                     keycode: Option::Some(Keycode::Escape),
                     ..
-                } => break 'mainloop,
+                } => {},
                 _ => {}
                 }
             }
@@ -93,11 +92,12 @@ impl Video {
             }
             self.canvas.present();
             // count += 1;
-            // if count % 1000 == 0 {
-                // dbg!(fps_manager.get_framerate());
+            if count % 1000 == 0 {
+                let fps_manager = FPSManager::new();
+                dbg!(fps_manager.get_framerate());
                 // dbg!(fps_manager.get_frame_count());
-            // }
-        }
+            }
+        // }
         Ok(())
     }
 }

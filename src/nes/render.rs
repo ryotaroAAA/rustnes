@@ -41,8 +41,6 @@ impl Render {
     }
 
     pub fn render(&mut self, image: &Image) {
-        println!("{:?}", image.palette);
-
         self.render_background(image);
         self.render_sprite(image);
     }
@@ -85,6 +83,9 @@ impl Render {
             for j in 0..8 {
                 let id: u16 = (palette_id * 4 +
                     tile.sprite.data[i as usize][j as usize] as u16);
+                // if id > 0 {
+                //     dbg!(id, palette_id, i, j);
+                // }
                 let color_id: u8 = image.palette[(palette_id * 4 +
                     tile.sprite.data[i as usize][j as usize] as u16) as usize];
                 let x: u8 = (tile_x + j as u8 - tile.scroll_x);

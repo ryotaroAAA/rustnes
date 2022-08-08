@@ -55,7 +55,7 @@ struct FetchedOp {
 
 #[derive(Debug)]
 pub struct Cpu<'a> {
-    cycle: u16,
+    cycle: u64,
     has_branched: bool,
     reg: Register,
     cas: &'a Cassette,
@@ -375,12 +375,12 @@ impl<'a> Cpu<'a> {
             i, self.reg.pc, op.opcode.to_string(), op.mode.to_string(), fop.data,
             self.reg.a, self.reg.x, self.reg.y, self.reg.p, self.reg.sp, self.cycle);
     }
-    pub fn run(&mut self, ppu: &mut Ppu) -> u16 {
+    pub fn run(&mut self, ppu: &mut Ppu) -> u64{
         let mut fetched_op: FetchedOp = self.fetch_op(ppu);
         // self.show_op(&fetched_op);
         self.exec(ppu, &mut fetched_op);
-        let cycle: u16 = 
-            (fetched_op.op.cycle + fetched_op.add_cycle) as u16;
+        let cycle: u64 = 
+            (fetched_op.op.cycle + fetched_op.add_cycle) as u64;
         self.cycle += cycle;
         cycle
     }
