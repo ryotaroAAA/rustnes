@@ -68,10 +68,11 @@ pub fn run(cassette_path: &str) {
             dbg!();
             for a in &render.data{
                 for b in a.iter(){
-                    print!("{:x}", b);
+                    print!("{}", if *b > 0x050505 {"#"} else {" "});
                 }
                 print!("\n");
             }
+            
         }
         count += 1;
         if count > 10000 {

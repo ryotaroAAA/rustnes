@@ -60,8 +60,9 @@ impl<'a> Render<'a> {
     fn render_background(&mut self) {
         for i in 0..V_SPRITE_NUM {
             for j in 0..H_SPRITE_NUM {
-                let x: u8 = (j as u8 % 32) * 8;
-                let y: u8 = (j as u8 / 32) * 8;
+                let x: u8 = j as u8 * 8;
+                let y: u8 = i as u8 * 8;
+                dbg!(x, y);
                 self.render_tile(i as u8, j as u8, x, y);
             }
         }
