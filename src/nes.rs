@@ -61,14 +61,14 @@ pub fn run(cassette_path: &str) {
         let is_render_ready: bool = ppu.run(cycle);
         
         if is_render_ready {
+            println!("{:?}", ppu.image.palette);
             let mut render: Render = Render::new(&ppu.image);
             render.render();
             // println!();
             dbg!();
             for a in &render.data{
                 for b in a.iter(){
-                    let val = if *b > 0 {1} else {0};
-                    print!("{:?}", val);
+                    print!("{:x}", b);
                 }
                 print!("\n");
             }

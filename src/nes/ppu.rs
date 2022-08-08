@@ -145,17 +145,20 @@ impl Palette {
             ram: Ram::new(size)
         }
     }
-    fn read(&self, pal: &mut [u8; PALETTE_SIZE]) {
+    fn read(&self) -> [u8; 32]{
+        let mut palette: [u8; 32] = [0u8; PALETTE_SIZE];
         for i in 0..PALETTE_SIZE {
-            pal[i] = if self.is_sprite_mirror(i as u16) && 
+            palette[i] = if self.is_sprite_mirror(i as u16) && 
                     self.is_background_mirror(i as u16) {
-                self.ram.data[i - 0x10]
+                self.ram.read(i as u16 - 0x10)
             } else {
-                self.ram.data[i]
-            }
+                self.ram.read(i as u16)
+            };
         }
+        palette
     }
     fn write(&mut self, addr: u16, data: u8) {
+        dbg!(addr, data);
         let addr_: usize = self.get_palette_addr(addr) as usize;
         self.ram.data[addr_] = data;
     }
@@ -319,8 +322,8 @@ impl<'a> Ppu<'a> {
         // self.vram->read(self.mirror_down_sprite_addr(addr))
         self.vram.data[addr as usize]
     }
-    fn get_palette(&mut self, pal: &mut [u8; PALETTE_SIZE]) {
-        self.palette.read(pal);
+    fn get_palette(&mut self) {
+        self.image.palette = self.palette.read();
     }
     fn calc_vram_addr(&mut self) -> u16{
         if self.vram_addr >= 0x3000 && self.vram_addr < 0x3F00 {
@@ -409,6 +412,7 @@ impl<'a> Ppu<'a> {
         if self.vram_addr >= 0x2000 {
             if self.vram_addr >= 0x3F00 && self.vram_addr < 0x4000 {
                 // pallette
+                dbg!(self.vram_addr, data);
                 self.palette.write(self.vram_addr - 0x3F00, data);
             } else {
                 // name table, attr table
@@ -470,7 +474,7 @@ impl<'a> Ppu<'a> {
 
             for j in 0..8 {
                 if ram & (0x80 >> j) > 0 {
-                    sprite.data[(i % 8) as usize][j] += 0x01 << (i/8)
+                    sprite.data[(i % 8) as usize][j] += 0x01 << (i/8);
                 }
             }
         }
@@ -519,16 +523,16 @@ impl<'a> Ppu<'a> {
                 }
             }
         }
-        println!("{}", sprite_id);
-        if sprite_id > 0 {
-            for a in &background[x as usize][y as usize].sprite.data {
-                for b in a.iter(){
-                    let val = if *b > 0 {1} else {0};
-                    print!("{:?}", val);
-                }
-                print!("\n");
-            }
-        }
+        // if sprite_id > 0 {
+        //     println!("{} x:{}, y:{}", sprite_id, x, y);
+        //     for a in &background[x as usize][y as usize].sprite.data {
+        //         for b in a.iter(){
+        //             let val = if *b > 0 {1} else {0};
+        //             print!("{:?}", val);
+        //         }
+        //         print!("\n");
+        //     }
+        // }
     }
     // the element of background
     fn build_tile(&mut self, x: u8, y: u8, offset: u16, i: u8, j: u8) {
@@ -578,7 +582,6 @@ impl<'a> Ppu<'a> {
             if self.line <= V_SIZE as u16 &&
                     !(self.line % TILE_SIZE as u16 > 0) &&
                     (self.line % TILE_SIZE as u16 == 0) {
-                dbg!();
                 self.build_background();
             }
             
@@ -590,16 +593,14 @@ impl<'a> Ppu<'a> {
                 }
             }
             if self.line == V_SIZE_WITH_VBLANK as u16 {
-                dbg!(self.cycle, self.line);
                 self.build_objects();
                 self.clear_vblank();
                 self.clear_sprite_hit();
                 self.line = 0;
                 self.background_index = 0;
 
-
-                let mut pal: [u8; PALETTE_SIZE] = self.image.palette;
-                self.get_palette(&mut pal);
+                self.get_palette();
+                println!("##{:?}", self.image.palette);
                 // self.interrupts.deassert_nmi();
                 // return self.image
                 return true;

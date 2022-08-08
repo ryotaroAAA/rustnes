@@ -43,6 +43,8 @@ impl<'a> Render<'a> {
     }
 
     pub fn render(&mut self) {
+        println!("{:?}", self.image.palette);
+
         self.render_background();
         self.render_sprite();
     }
@@ -71,14 +73,32 @@ impl<'a> Render<'a> {
         let tile:&Tile = &self
             .image
             .background[sprite_x as usize][sprite_y as usize];
+        // if tile.sprite_id > 0 {
+        //     dbg!();
+        //     println!("{}", tile.sprite_id);
+        //     println!("{:?}", tile);
+        //     for a in &tile.sprite.data {
+        //         for b in a.iter(){
+        //             print!("{:?}", b);
+        //         }
+        //         print!("\n");
+        //     }
+        // }
         let palette_id: u16 = tile.palette_id;
         // let data = tile.sprite.data;
         for i in 0..8 {
             for j in 0..8 {
+                let id: u16 = (palette_id * 4 +
+                    tile.sprite.data[i as usize][j as usize] as u16);
                 let color_id: u8 = self.image.palette[(palette_id * 4 +
-                    tile.sprite.data[i as usize][j as usize] as u16 + 0x10) as usize];
+                    tile.sprite.data[i as usize][j as usize] as u16) as usize];
                 let x: u8 = (tile_x + j as u8 - tile.scroll_x);
                 let y: u8 = (tile_y + i as u8 - tile.scroll_y) % V_SIZE as u8;
+                if tile.sprite_id > 0 {
+                    // println!("{} {} {} {} {} {}",
+                    // x, y, palette_id, color_id,
+                    // tile.sprite.data[i as usize][j as usize], id);
+                }
                 self.data[y as usize % V_SIZE][x as usize % H_SIZE] =
                     COLORS[color_id as usize];
             }
