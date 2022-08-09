@@ -22,7 +22,7 @@ use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use sdl2::gfx::framerate::FPSManager;
 
-
+pub const FPS: u32 = 60;
 pub const PAD_DELAY: usize = 10;
 pub const PAD_INTERVAL: usize = 10;
 
@@ -30,7 +30,8 @@ pub const PAD_INTERVAL: usize = 10;
 pub struct Video {
     scale: u8,
     canvas: sdl2::render::Canvas<Window>,
-    sdl_context: Sdl
+    sdl_context: Sdl,
+    fps_manager: FPSManager
 }
 
 impl Video {
@@ -48,6 +49,8 @@ impl Video {
           .software()
           .build()
           .map_err(|e| e.to_string())?;
+        let mut fps_manager = FPSManager::new();
+        fps_manager.set_framerate(FPS);
       
         canvas.set_draw_color(Color::RGB(0, 0, 0));
         canvas.clear();
@@ -56,7 +59,8 @@ impl Video {
         Ok(Video {
             scale: scale,
             canvas: canvas,
-            sdl_context: sdl_context
+            sdl_context: sdl_context,
+            fps_manager: fps_manager
         })  
     }
 
@@ -92,9 +96,9 @@ impl Video {
             }
             self.canvas.present();
             // count += 1;
-            if count % 1000 == 0 {
-                let fps_manager = FPSManager::new();
-                dbg!(fps_manager.get_framerate());
+            if count % 100000 == 0 {
+                dbg!(self.fps_manager.get_framerate(),
+                    self.fps_manager.delay());
                 // dbg!(fps_manager.get_frame_count());
             }
         // }
