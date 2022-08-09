@@ -2,7 +2,6 @@
 
 use super::Cassette;
 use super::Ram;
-use super::Context;
 use super::optable::{AddrModes, OpCodes, OpInfo, OP_TABLE};
 use super::ppu::*;
 

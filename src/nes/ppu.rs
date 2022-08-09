@@ -1,23 +1,8 @@
 #![allow(unused_variables)]
 
 use core::panic;
-use std::collections::HashMap;
-use std::fmt;
-use once_cell::sync::Lazy;
 use super::Cassette;
 use super::Ram;
-use super::Context;
-use std::rc::*;
-use std::cell::*;
-
-const CARRY: u8 = 1 << 0;
-const ZERO: u8 = 1 << 1;
-const INTERRUPT: u8 = 1 << 2;
-const DECIMAL: u8 = 1 << 3;
-const BREAK: u8 = 1 << 4;
-const RESERVED: u8 = 1 << 5;
-const OVERFLOW: u8 = 1 << 6;
-const NEGATIVE: u8 = 1 << 7;
 
 /*
     [Control Register1 0x2000]

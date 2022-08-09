@@ -12,4 +12,12 @@ once_cell = "1.13.0"
 [dependencies.sdl2]
 version = "0.35.2"
 default-features = false
+# features = []
 features = ["gfx"]
+
+[package.metadata.vcpkg]
+dependencies = ["sdl2", "sdl2-image[libjpeg-turbo,tiff,libwebp]", "sdl2-ttf", "sdl2-gfx", "sdl2-mixer"]
+rev = "a0518036077baa4"
+
+[package.metadata.vcpkg.target]
+x86_64-pc-windows-msvc = { triplet = "x64-windows-static-md" }

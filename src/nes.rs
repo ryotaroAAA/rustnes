@@ -3,14 +3,14 @@ pub mod cpu;
 pub mod ppu;
 pub mod render;
 pub mod ram;
-pub mod video;
+pub mod game;
 pub mod optable;
 
 extern crate sdl2;
 
 use sdl2::*;
 use crate::nes::cpu::*;
-use crate::nes::video::*;
+use crate::nes::game::*;
 use crate::nes::ppu::*;
 use crate::nes::render::*;
 use crate::nes::ram::Ram;
@@ -51,31 +51,28 @@ pub fn run(cassette_path: &str) {
     let mut wram: Ram = Ram::new(WRAM_SIZE);
     let mut vram: Ram = Ram::new(VRAM_SIZE);
     let cas: Cassette = Cassette::new(cassette_path);
-    // let mut image: Image = Image::new();
-    let mut ctx: Context = Context::new(
-        &cas, &mut wram, &mut vram
-    );
+    // let mut ctx: Context = Context::new(
+    //     &cas, &mut wram, &mut vram
+    // );
 
-    let mut ppu: Ppu = Ppu::new(&cas, &mut ctx.vram);
-    let mut cpu: Cpu = Cpu::new(&ctx.cas, &mut ctx.wram);
+    let mut ppu: Ppu = Ppu::new(&cas, &mut vram);
+    let mut cpu: Cpu = Cpu::new(&cas, &mut wram);
     cpu.reset(&mut ppu);
 
-    let mut video: Video = Video::new(4).unwrap();
+    let mut game: Game = Game::new().unwrap();
     let mut render: Render = Render::new();
 
-    let mut count: usize = 0;
     loop {
         let cycle: u64 = cpu.run(&mut ppu);
         let is_render_ready: bool = ppu.run(cycle);
         
         if is_render_ready {
             render.render(&ppu.image);
-            _ = video.run(&render.data);
-        }
-        count += 1;
-        if count > 10000 {
-            // println!("break");
-            // break;
+            let status: GameStatus = game.run(&render.data).unwrap();
+            if status == GameStatus::Exit {
+                println!("Exit...");
+                break;
+            }
         }
     }
 }

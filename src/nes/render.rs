@@ -1,13 +1,6 @@
 #![allow(unused_variables)]
 
-use core::panic;
-use std::collections::HashMap;
-use super::Cassette;
-use super::Ram;
 use super::ppu::*;
-use super::Context;
-use std::rc::*;
-use std::cell::*;
 
 const COLORS: [u64; 64] = [
     0x808080, 0x003DA6, 0x0012B0, 0x440096,
