@@ -1,5 +1,6 @@
 pub mod cassette;
 pub mod cpu;
+pub mod interrupts;
 pub mod ppu;
 pub mod render;
 pub mod ram;
@@ -10,6 +11,7 @@ extern crate sdl2;
 
 use sdl2::*;
 use crate::nes::cpu::*;
+use crate::nes::interrupts::*;
 use crate::nes::game::*;
 use crate::nes::ppu::*;
 use crate::nes::render::*;
@@ -55,6 +57,7 @@ pub fn run(cassette_path: &str) {
     //     &cas, &mut wram, &mut vram
     // );
 
+    let mut inter: Interrupts = Interrupts::new();;
     let mut ppu: Ppu = Ppu::new(&cas, &mut vram);
     let mut cpu: Cpu = Cpu::new(&cas, &mut wram);
     cpu.reset(&mut ppu);
@@ -63,8 +66,8 @@ pub fn run(cassette_path: &str) {
     let mut render: Render = Render::new();
 
     loop {
-        let cycle: u64 = cpu.run(&mut ppu);
-        let is_render_ready: bool = ppu.run(cycle);
+        let cycle: u64 = cpu.run(&mut ppu, &mut inter);
+        let is_render_ready: bool = ppu.run(cycle, &mut inter);
         
         if is_render_ready {
             render.render(&ppu.image);

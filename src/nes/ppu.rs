@@ -2,6 +2,7 @@
 
 use core::panic;
 use super::Cassette;
+use super::Interrupts;
 use super::Ram;
 
 /*
@@ -558,7 +559,7 @@ impl<'a> Ppu<'a> {
         self.background_index += 1;
     }
     
-    pub fn run(&mut self, cycle: u64) -> bool{
+    pub fn run(&mut self, cycle: u64, inter: &mut Interrupts) -> bool{
         self.cycle += 3 * cycle;
         
         if self.line == 0 {
@@ -579,9 +580,9 @@ impl<'a> Ppu<'a> {
             
             if self.line == V_SIZE as u16 + 1 {
                 self.set_vblank();
-                // self.interrupts.deassert_nmi();
+                inter.deassert_nmi();
                 if self.has_vblank_irq_enabled() {
-                    // self.interrupts.assert_nmi();
+                    inter.assert_nmi();
                 }
             }
             if self.line == V_SIZE_WITH_VBLANK as u16 {

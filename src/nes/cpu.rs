@@ -2,6 +2,7 @@
 
 use super::Cassette;
 use super::Ram;
+use super::interrupts::Interrupts;
 use super::optable::{AddrModes, OpCodes, OpInfo, OP_TABLE};
 use super::ppu::*;
 
@@ -367,6 +368,31 @@ impl<'a> Cpu<'a> {
             _=> panic!("invelid opcode {:?}", opcode),
         }
     }
+    fn check_nmi(&mut self, ppu:&mut Ppu, inter: &mut Interrupts) {
+        if !inter.get_nmi_assert(){
+            return;
+        }
+        inter.deassert_nmi();
+        self.reg.p &= !BREAK;
+        self.push_pc(ppu);
+        self.push_reg_status(ppu);
+        self.reg.p |= INTERRUPT;
+        self.reg.pc = self.wread(ppu, 0xFFFA);
+    }
+    fn check_irq(&mut self, ppu: &mut Ppu, inter: &mut Interrupts) {
+        if !inter.get_irq_assert() {
+            return;
+        }
+        if self.reg.p & INTERRUPT > 0 {
+            return;
+        }
+        inter.deassert_irq();
+        self.reg.p &= !BREAK;
+        self.push_pc(ppu);
+        self.push_reg_status(ppu);
+        self.reg.p |= INTERRUPT;
+        self.reg.pc = self.wread(ppu, 0xFFFE);
+    }
     fn show_op(&self, fop: &FetchedOp) {
         let i: u8 = fop.index;
         let op: OpInfo = fop.op;
@@ -374,12 +400,15 @@ impl<'a> Cpu<'a> {
             i, self.reg.pc, op.opcode.to_string(), op.mode.to_string(), fop.data,
             self.reg.a, self.reg.x, self.reg.y, self.reg.p, self.reg.sp, self.cycle);
     }
-    pub fn run(&mut self, ppu: &mut Ppu) -> u64{
+    pub fn run(&mut self, ppu: &mut Ppu, inter: &mut Interrupts) -> u64{
+        self.check_nmi(ppu, inter);
+        self.check_irq(ppu, inter);
         let mut fetched_op: FetchedOp = self.fetch_op(ppu);
         // self.show_op(&fetched_op);
         self.exec(ppu, &mut fetched_op);
         let cycle: u64 = 
-            (fetched_op.op.cycle + fetched_op.add_cycle) as u64;
+            (fetched_op.op.cycle + fetched_op.add_cycle) as u64 +
+            if self.has_branched {1} else {0};
         self.cycle += cycle;
         cycle
     }
