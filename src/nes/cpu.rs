@@ -1,5 +1,7 @@
 #![allow(unused_variables)]
 
+use std::cmp;
+
 use super::Cassette;
 use super::Ram;
 use super::interrupts::Interrupts;
@@ -55,8 +57,11 @@ struct FetchedOp {
 
 #[derive(Debug)]
 pub struct Cpu<'a> {
+    index: u64,
     cycle: u64,
     has_branched: bool,
+    exec_log: Vec<String>,
+    nestest_log: Vec<String>,
     reg: Register,
     cas: &'a Cassette,
     wram: &'a mut Ram,
@@ -64,19 +69,37 @@ pub struct Cpu<'a> {
 
 impl<'a> Cpu<'a> {
     pub fn new(cas: &'a Cassette, wram: &'a mut Ram) -> Cpu<'a> {
+        let nestest_log = "nestest.log";
+        let log: String =
+            std::fs::read_to_string(nestest_log).unwrap();
+        let nestest_log: Vec<String> =
+                log.split("\r\n")
+                    .fold(Vec::new(),
+                        |mut s,
+                        i| {
+            // only cpu related log
+            s.push((&i.to_string()[..28]).to_string());
+            s
+        });
+        // println!("{:?}", buf);
         Cpu {
+            index: 0,
             cycle: 0,
             has_branched: false,
+            exec_log: Vec::new(),
+            nestest_log: nestest_log,
             reg: Register::new(),
             cas: cas,
             wram: wram,
         }
     }
     pub fn reset(&mut self, ppu:&mut Ppu) {
+        self.index = 0;
         self.cycle = 0;
         self.has_branched = false;
         self.reg.reset();
-        self.reg.pc = self.wread(ppu, 0xFFFC);
+        // self.reg.pc = self.wread(ppu, 0xFFFC);
+        self.reg.pc = 0xc000;
     }
     fn bread(&mut self, ppu: &mut Ppu, addr: u16) -> u8 {
         self.read(ppu, addr)
@@ -133,6 +156,7 @@ impl<'a> Cpu<'a> {
     fn fetch_op(&mut self, ppu: &mut Ppu) -> FetchedOp{
         let pc = self.reg.pc;
         let index: u8 = self.bfetch(ppu);
+        // println!("{pc:x} {index:x}");
         let op = OP_TABLE.get(&index).unwrap();
         let mut data: u32 = 0;
         let mut add_cycle: u8 = 0;
@@ -141,7 +165,8 @@ impl<'a> Cpu<'a> {
             AddrModes::IMD | AddrModes::ZPG => data = self.bfetch(ppu) as u32,
             AddrModes::REL => {
                 let addr: u32 = self.bfetch(ppu) as u32;
-                data = ((addr + self.reg.pc as u32) - if addr < 0x80 {1} else {0x100}) as u32;
+                data = ((addr + self.reg.pc as u32) - 
+                    if addr < 0x80 {0} else {0x100}) as u32;
             },
             AddrModes::ZPGX => data = ((self.reg.x + self.bfetch(ppu)) & 0xFF) as u32,
             AddrModes::ZPGY => data = ((self.reg.y + self.bfetch(ppu)) & 0xFF) as u32,
@@ -283,6 +308,23 @@ impl<'a> Cpu<'a> {
                 self.reg.pc += 1;
             },
             // interrupt
+            OpCodes::BRK => {
+                self.reg.pc += 1;
+                self.push_pc(ppu);
+                self.push_reg_status(ppu);
+                if (self.reg.p & INTERRUPT) == 0 {
+                    self.reg.pc = self.wread(ppu, 0xFFFE);
+                }
+                self.reg.p |= INTERRUPT;
+                self.reg.pc -= 1;
+            },
+            OpCodes::RTI => {
+                let is_break: bool = self.reg.p & BREAK > 0;
+                self.pop_reg_status(ppu);
+                self.pop_pc(ppu);
+                self.reg.p |= if is_break {BREAK} else {0};
+                self.reg.p |= RESERVED;
+            },
             // comp
             // inc/dec
             OpCodes::INC => {
@@ -365,7 +407,7 @@ impl<'a> Cpu<'a> {
             // nop
             OpCodes::NOP => (),
             // unofficial
-            _=> panic!("invelid opcode {:?}", opcode),
+            _=> panic!("invalid opcode {:?}", opcode),
         }
     }
     fn check_nmi(&mut self, ppu:&mut Ppu, inter: &mut Interrupts) {
@@ -393,23 +435,51 @@ impl<'a> Cpu<'a> {
         self.reg.p |= INTERRUPT;
         self.reg.pc = self.wread(ppu, 0xFFFE);
     }
-    fn show_op(&self, fop: &FetchedOp) {
-        let i: u8 = fop.index;
+    fn show_op(&mut self, pc: u16, fop: &FetchedOp) {
+        let i: usize = self.index as usize;
         let op: OpInfo = fop.op;
-        println!("{:04} {:#05X} {:3} {:4} {:04X} A:{:02X} X:{:02X} Y:{:02X} P:{:02X} SP:{:04X} {}",
-            i, self.reg.pc, op.opcode.to_string(), op.mode.to_string(), fop.data,
-            self.reg.a, self.reg.x, self.reg.y, self.reg.p, self.reg.sp, self.cycle);
+        println!("{:05} {:04X} {:3} {:4} {:04X} A:{:02X} X:{:02X} Y:{:02X} P:{:02X} SP:{:04X} {}",
+            i + 1, pc, op.opcode.to_string(),
+            op.mode.to_string(), fop.data,
+            self.reg.a, self.reg.x,
+            self.reg.y, self.reg.p,
+            self.reg.sp, self.cycle);
+        let fmt = format!("{:04X} {:3} A:{:02X} X:{:02X} Y:{:02X} P:{:02X} SP:{:04X} {}",
+            pc, op.opcode.to_string(),
+            self.reg.a, self.reg.x,
+            self.reg.y, self.reg.p,
+            self.reg.sp, self.cycle);
+        let exec_op = &fmt[..28];
+        let exp_op = &self.nestest_log[i];
+        self.exec_log.push(exec_op.to_string());
+        if exec_op == exp_op {
+            // println!(" # exp :{}", &self.nestest_log[i]);
+            // println!(" # exe :{}", &self.exec_log[i]);
+        } else {
+            let s: usize = std::cmp::max(0, i as i32 -10) as usize;
+            println!(" ### expected ###");
+            for j in s..i+1 {
+                println!("{} {}", j + 1, &self.nestest_log[j]);
+            }
+            println!(" ### executed ###");
+            for j in s..i+1 {
+                println!("{} {}", j + 1, &self.exec_log[j]);
+            }
+            panic!("op compare failed!");
+        }
     }
     pub fn run(&mut self, ppu: &mut Ppu, inter: &mut Interrupts) -> u64{
         self.check_nmi(ppu, inter);
         self.check_irq(ppu, inter);
+        let pc = self.reg.pc;
         let mut fetched_op: FetchedOp = self.fetch_op(ppu);
-        // self.show_op(&fetched_op);
+        self.show_op(pc, &fetched_op);
         self.exec(ppu, &mut fetched_op);
         let cycle: u64 = 
             (fetched_op.op.cycle + fetched_op.add_cycle) as u64 +
             if self.has_branched {1} else {0};
         self.cycle += cycle;
+        self.index += 1;
         cycle
     }
 }

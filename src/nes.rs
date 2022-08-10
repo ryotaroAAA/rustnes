@@ -58,6 +58,7 @@ pub fn run(cassette_path: &str) {
 
     cpu.reset(&mut ppu);
 
+    let mut count = 0;
     loop {
         let cycle: u64 = cpu.run(&mut ppu, &mut inter);
         let is_render_ready: bool = ppu.run(cycle, &mut inter);
@@ -69,6 +70,10 @@ pub fn run(cassette_path: &str) {
                 println!("Exit...");
                 break;
             }
+        }
+        count += 1;
+        if count > 100 {
+            break;
         }
     }
 }

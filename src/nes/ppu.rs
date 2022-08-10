@@ -346,7 +346,6 @@ impl<'a> Ppu<'a> {
         | 4-0  | invalid                                     |                                 
         |      | bit4 VRAM write flag [0: success, 1: fail]  |
         */
-        dbg!(addr);
         match addr {
             0x0002 => {
                 // PPUSTATUS
@@ -367,7 +366,6 @@ impl<'a> Ppu<'a> {
         }
     }
     pub fn write_sprite_ram_addr(&mut self, data: u8) {
-        dbg!(data);
         self.sprite_ram_addr = data as u16;
     }
     pub fn write_sprite_ram_data(&mut self, data: u8) {
@@ -412,7 +410,7 @@ impl<'a> Ppu<'a> {
         self.vram_addr += self.get_vram_offset() as u16;
     }
     pub fn write(&mut self, addr: u16, data: u8) {
-        println!("{} {}", addr, data);
+        // println!("{} {}", addr, data);
         match addr {
             0x0000 => self.creg1 = data,
             0x0001 => self.creg2 = data,
