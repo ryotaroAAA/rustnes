@@ -252,6 +252,15 @@ impl<'a> Cpu<'a> {
         match opcode {
             // op
             // bit op
+            // OpCodes::AND => {
+            //     let data_ = if mode == AddrModes::IMD {
+            //         data
+            //     } else {
+            //         self.bread(ppu, data) as u
+            //     };
+            //     self.reg.a &= data_;
+            //     self.set_flag_after_calc(self.reg.a);
+            // },
             // shift/rotation
             // conditional branch
             OpCodes::BCS => {
@@ -295,6 +304,24 @@ impl<'a> Cpu<'a> {
                 }
             },
             // bit check
+            OpCodes::BIT => {
+                let data_ = self.bread(ppu, data);
+                self.reg.p = if data_ & 0x40 > 0 {
+                    self.reg.p | OVERFLOW
+                } else {
+                    self.reg.p & !OVERFLOW
+                };
+                self.reg.p = if data_ & 0x80 > 0 {
+                    self.reg.p | NEGATIVE
+                } else {
+                    self.reg.p & !NEGATIVE
+                };
+                self.reg.p = if (data_ & self.reg.a) == 0 {
+                    self.reg.p | ZERO
+                } else {
+                    self.reg.p & !ZERO
+                };
+            },
             // jump
             OpCodes::JMP => self.reg.pc = data,
             OpCodes::JSR => {
@@ -404,6 +431,34 @@ impl<'a> Cpu<'a> {
                 self.set_flag_after_calc(self.reg.a);
             },
             // stack
+            OpCodes::PHA => {
+                self.push(ppu, self.reg.a);
+            },
+            OpCodes::PHP => {
+                let is_break: bool = self.reg.p & BREAK > 0;
+                self.reg.p |= BREAK;
+                self.push_reg_status(ppu);
+                self.reg.p = if is_break {
+                    self.reg.p | BREAK
+                } else {
+                    self.reg.p & !BREAK
+                };
+            },
+            OpCodes::PLA => {
+                self.reg.a = self.pop(ppu);
+                self.set_flag_after_calc(self.reg.a);
+            },
+            OpCodes::PLP => {
+                let is_break: bool = self.reg.p & BREAK > 0;
+                self.pop_reg_status(ppu);
+                self.reg.p |= BREAK;
+                self.reg.p = if is_break {
+                    self.reg.p | BREAK
+                } else {
+                    self.reg.p & !BREAK
+                };
+                self.reg.p |= RESERVED;
+            },
             // nop
             OpCodes::NOP => (),
             // unofficial
