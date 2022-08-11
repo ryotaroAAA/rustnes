@@ -251,17 +251,180 @@ impl<'a> Cpu<'a> {
         let data: u16 = fop.data;
         match opcode {
             // op
+            OpCodes::ADC => {
+                let data_: u8 = if mode == AddrModes::IMD {
+                    data as u8
+                } else {
+                    self.bread(ppu, data) as u8
+                };
+                let result: u16 = self.reg.a as u16 +
+                    data_ as u16 +
+                    if self.reg.p & CARRY > 0 {1} else {0};
+                self.reg.p =
+                    if result > 0xFF &&
+                        self.reg.a < 0xFF &&
+                        data_ < 0xFF {
+                    self.reg.p | CARRY
+                } else {
+                    self.reg.p & !CARRY
+                };
+                self.reg.p =
+                    if ((data_ ^ result as u8) & 0x80) > 0 &&
+                        ((self.reg.a ^ result as u8) & 0x80) > 0 {
+                    self.reg.p | OVERFLOW
+                } else {
+                    self.reg.p & !OVERFLOW
+                };
+                self.set_flag_after_calc(result as u8);
+                self.reg.a = result as u8;
+            },
+            OpCodes::SBC => {
+                let data_: u8 = if mode == AddrModes::IMD {
+                    data as u8
+                } else {
+                    self.bread(ppu, data) as u8
+                };
+                let result: i16 = self.reg.a as i16 -
+                    data_ as i16 -
+                    if self.reg.p & CARRY > 0 {0} else {1};
+                self.reg.p = if !(result < 0) {
+                    self.reg.p | CARRY
+                } else {
+                    self.reg.p & !CARRY
+                };
+                self.reg.p =
+                    if ((data_ ^ result as u8) & 0x80 > 0 ||
+                        (self.reg.a ^ result as u8) & 0x80 > 0) &&
+                        self.reg.p & CARRY > 0 {
+                    self.reg.p | OVERFLOW
+                } else {
+                    self.reg.p & !OVERFLOW
+                };
+                self.set_flag_after_calc(result as u8);
+                self.reg.a = result as u8;             
+            },
             // bit op
-            // OpCodes::AND => {
-            //     let data_ = if mode == AddrModes::IMD {
-            //         data
-            //     } else {
-            //         self.bread(ppu, data) as u
-            //     };
-            //     self.reg.a &= data_;
-            //     self.set_flag_after_calc(self.reg.a);
-            // },
+            OpCodes::AND => {
+                let data_: u8 = if mode == AddrModes::IMD {
+                    data as u8
+                } else {
+                    self.bread(ppu, data) as u8
+                };
+                self.reg.a &= data_;
+                self.set_flag_after_calc(self.reg.a);
+            },
+            OpCodes::ORA => {
+                let data_: u8 = if mode == AddrModes::IMD {
+                    data as u8
+                } else {
+                    self.bread(ppu, data) as u8
+                };
+                self.reg.a |= data_;
+                self.set_flag_after_calc(self.reg.a);
+            },
+            OpCodes::EOR => {
+                let data_: u8 = if mode == AddrModes::IMD {
+                    data as u8
+                } else {
+                    self.bread(ppu, data) as u8
+                };
+                self.reg.a ^= data_;
+                self.set_flag_after_calc(self.reg.a);
+            },
             // shift/rotation
+            OpCodes::ASL => {
+                let mut data_: u8 = if mode == AddrModes::ACM {
+                    self.reg.a as u8
+                } else {
+                    self.bread(ppu, data) as u8
+                };
+                self.reg.p = if data_ & 0x80 > 0 {
+                    self.reg.p | CARRY
+                } else {
+                    self.reg.p & !CARRY
+                };
+                data_ = ((data_ as u16) << 1) as u8;
+                if mode == AddrModes::ACM {
+                    self.reg.a = data_;
+                } else {
+                    self.write(ppu, data, data_);
+                }
+                self.set_flag_after_calc(data_);
+            },
+            OpCodes::LSR => {
+                let mut data_: u8 = if mode == AddrModes::ACM {
+                    self.reg.a as u8
+                } else {
+                    self.bread(ppu, data) as u8
+                };
+                self.reg.p = if data_ & 0x01 > 0 {
+                    self.reg.p | CARRY
+                } else {
+                    self.reg.p & !CARRY
+                };
+                data_ = ((data_ as u16) >> 1) as u8;
+                self.reg.p = if data_ == 0 {
+                    self.reg.p | ZERO
+                } else {
+                    self.reg.p & !ZERO
+                };
+                if mode == AddrModes::ACM {
+                    self.reg.a = data_;
+                } else {
+                    self.write(ppu, data, data_);
+                }
+                self.reg.p &= !NEGATIVE;
+            },
+            OpCodes::ROL => {
+                let mut data_: u8 = if mode == AddrModes::ACM {
+                    self.reg.a as u8
+                } else {
+                    self.bread(ppu, data) as u8
+                };
+                let is_carry: bool = data_ & CARRY > 0;
+                self.reg.p = if data_ & 0x80 > 0 {
+                    self.reg.p | CARRY
+                } else {
+                    self.reg.p & !CARRY
+                };
+                data_ = ((data_ as u16) << 1) as u8;
+                data_ = if is_carry {
+                    data_ | 0x01 
+                } else {
+                    data_ & !0x01
+                };
+                if mode == AddrModes::ACM {
+                    self.reg.a = data_;
+                } else {
+                    self.write(ppu, data, data_);
+                }
+                self.set_flag_after_calc(data_);
+            },
+            OpCodes::ROR => {
+                let mut data_: u8 = if mode == AddrModes::ACM {
+                    self.reg.a as u8
+                } else {
+                    self.bread(ppu, data) as u8
+                };
+                let is_carry: bool = data_ & 0x01 > 0;
+                self.reg.p = if data_ & 0x80 > 0 {
+                    self.reg.p | CARRY
+                } else {
+                    self.reg.p & !CARRY
+                };
+                data_ = ((data_ as u16) >> 1) as u8;
+                data_ = if is_carry {
+                    data_ | 0x80
+                } else {
+                    data_ & !0x80
+                };
+                if mode == AddrModes::ACM {
+                    self.reg.a = data_;
+                } else {
+                    self.write(ppu, data, data_);
+                }
+                self.set_flag_after_calc(data_);
+            },
             // conditional branch
             OpCodes::BCS => {
                 if (self.reg.p & CARRY) > 0 {
@@ -352,7 +515,49 @@ impl<'a> Cpu<'a> {
                 self.reg.p |= if is_break {BREAK} else {0};
                 self.reg.p |= RESERVED;
             },
-            // comp
+            // compare
+            OpCodes::CMP => {
+                let data_: u8 = if mode == AddrModes::IMD {
+                    data as u8
+                } else {
+                    self.bread(ppu, data) as u8
+                };
+                let comp: i16 = self.reg.a as i16 - data_ as i16;
+                self.reg.p = if comp >= 0 {
+                    self.reg.p | CARRY
+                } else {
+                    self.reg.p & !CARRY
+                };
+                self.set_flag_after_calc(comp as u8);
+            },
+            OpCodes::CPX => {
+                let data_: u8 = if mode == AddrModes::IMD {
+                    data as u8
+                } else {
+                    self.bread(ppu, data) as u8
+                };
+                let comp: i16 = self.reg.x as i16 - data_ as i16;
+                self.reg.p = if comp >= 0 {
+                    self.reg.p | CARRY
+                } else {
+                    self.reg.p & !CARRY
+                };
+                self.set_flag_after_calc(comp as u8);
+            },
+            OpCodes::CPY => {
+                let data_: u8 = if mode == AddrModes::IMD {
+                    data as u8
+                } else {
+                    self.bread(ppu, data) as u8
+                };
+                let comp: i16 = self.reg.y as i16 - data_ as i16;
+                self.reg.p = if comp >= 0 {
+                    self.reg.p | CARRY
+                } else {
+                    self.reg.p & !CARRY
+                };
+                self.set_flag_after_calc(comp as u8);
+            },
             // inc/dec
             OpCodes::INC => {
                 let data_ :u8 = (self.bread(ppu, data) as u16 + 1) as u8;
@@ -373,11 +578,11 @@ impl<'a> Cpu<'a> {
                 self.set_flag_after_calc(data_);
             },
             OpCodes::DEX => {
-                self.reg.x = self.reg.x - 1;
+                self.reg.x = (self.reg.x as i16 - 1) as u8;
                 self.set_flag_after_calc(self.reg.x);
             },
             OpCodes::DEY => {
-                self.reg.y = self.reg.y - 1;
+                self.reg.y = (self.reg.y as i16 - 1) as u8;
                 self.set_flag_after_calc(self.reg.y);
             },
             // flag control
