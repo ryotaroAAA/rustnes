@@ -25,7 +25,7 @@ impl fmt::Display for AddrModes {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum OpCodes {
     ADC,
     SBC,

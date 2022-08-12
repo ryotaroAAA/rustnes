@@ -169,8 +169,10 @@ impl<'a> Cpu<'a> {
                 data = ((addr + self.reg.pc as u32) - 
                     if addr < 0x80 {0} else {0x100}) as u32;
             },
-            AddrModes::ZPGX => data = ((self.reg.x + self.bfetch(ppu)) & 0xFF) as u32,
-            AddrModes::ZPGY => data = ((self.reg.y + self.bfetch(ppu)) & 0xFF) as u32,
+            AddrModes::ZPGX => data =
+                ((self.reg.x as u16 + self.bfetch(ppu) as u16) & 0xFF) as u32,
+            AddrModes::ZPGY => data =
+                ((self.reg.y as u16 + self.bfetch(ppu) as u16) & 0xFF) as u32,
             AddrModes::ABS => data = self.wfetch(ppu) as u32,
             AddrModes::ABSX => {
                 let addr: u32 = self.wfetch(ppu) as u32;
@@ -183,21 +185,25 @@ impl<'a> Cpu<'a> {
                 add_cycle = if ((data ^ addr) & 0xFF00) > 0 {1} else {0};
             },
             AddrModes::INDX => {
-                let baddr: u16 = (self.reg.x + self.bfetch(ppu)) as u16 & 0xFF;
+                let baddr: u16 =
+                    (self.reg.x as u16 + self.bfetch(ppu) as u16) & 0xFF;
                 let baddr_: u16 = (baddr + 1) & 0xFF;
-                data = self.bread(ppu, baddr) as u32 + (self.bread(ppu, baddr_) as u32) << 8;
-            },
+                data = (self.bread(ppu, baddr) as u16 +
+                    ((self.bread(ppu, baddr_) as u16) << 8)) as u32;
+                },
             AddrModes::INDY => {
                 let baddr: u16 = self.bfetch(ppu) as u16;
                 let baddr_: u16 = (baddr + 1) & 0xFF;
-                data = self.bread(ppu, baddr) as u32 + (self.bread(ppu, baddr_) as u32) << 8;
-                let data_: u32 = self.reg.y as u32;
+                let data_ = (self.bread(ppu, baddr) as u16 +
+                    ((self.bread(ppu, baddr_) as u16) << 8)) as u32;
+                data = data_ as u32 + self.reg.y as u32;
                 add_cycle = if ((data ^ data_) & 0xFF00) > 0 {1} else {0};
             },
             AddrModes::ABSIND => {
                 let baddr: u16 = self.wfetch(ppu);
-                let baddr_: u16 = (baddr & 0xFF00) + (baddr + 1) & 0xFF;
-                data = self.bread(ppu, baddr) as u32 + (self.bread(ppu, baddr_) as u32) << 8;
+                let baddr_: u16 = (baddr & 0xFF00) + ((baddr + 1) & 0xFF);
+                data = (self.bread(ppu, baddr) as u16 +
+                    ((self.bread(ppu, baddr_) as u16) << 8)) as u32;
             },
             _=> panic!("invelid mode {:?}", op.mode),
         }
@@ -579,7 +585,7 @@ impl<'a> Cpu<'a> {
                 self.set_flag_after_calc(self.reg.y);
             },
             OpCodes::DEC => {
-                let data_ :u8 = self.bread(ppu, data) - 1;
+                let data_ :u8 = (self.bread(ppu, data) as i16 - 1) as u8;
                 self.write(ppu, data, data_);
                 self.set_flag_after_calc(data_);
             },
@@ -601,16 +607,17 @@ impl<'a> Cpu<'a> {
             OpCodes::SED => self.reg.p |= DECIMAL,
             // load
             OpCodes::LDA | OpCodes::LDX | OpCodes::LDY => {
-                let data_: u8 = match mode {
-                    AddrModes::IMD => data as u8,
-                    _ => self.bread(ppu, data)
+                let data_: u8 = if mode == AddrModes::IMD {
+                    data as u8
+                } else {
+                    self.bread(ppu, data)
                 };
                 match opcode {
                     OpCodes::LDA => self.reg.a = data_,
                     OpCodes::LDX => self.reg.x = data_,
                     OpCodes::LDY => self.reg.y = data_,
                     _ => panic!("invalid opcode {}", opcode)
-                }
+                };
                 self.set_flag_after_calc(data_);
             },
             // store
@@ -673,6 +680,28 @@ impl<'a> Cpu<'a> {
             // nop
             OpCodes::NOP => (),
             // unofficial
+            OpCodes::NOPD => {
+                self.reg.pc += 1;
+            },
+            OpCodes::NOPI => {
+                self.reg.pc += 2;
+            },
+            OpCodes::LAX => {
+                self.reg.a = self.bread(ppu, data);
+                self.reg.x = self.reg.a;
+                self.set_flag_after_calc(self.reg.a);
+            },
+            OpCodes::SAX => {
+                self.write(ppu, data, self.reg.a & self.reg.x);
+            },
+            OpCodes::DCP => {
+                let data_: u8 = ((self.bread(ppu, data) as i16 - 1) & 0xFF) as u8;
+                let data__ =
+                    (self.reg.a as i16 - data_ as i16) as u8;
+                self.set_flag_after_calc(data__);
+                self.write(ppu, data, data_);
+            },
+
             _=> panic!("invalid opcode {:?}", opcode),
         }
     }
@@ -722,16 +751,24 @@ impl<'a> Cpu<'a> {
             // println!(" # exp :{}", &self.nestest_log[i]);
             // println!(" # exe :{}", &self.exec_log[i]);
         } else {
-            let s: usize = std::cmp::max(0, i as i32 -3) as usize;
-            println!(" ### expected ###");
-            for j in s..i+1 {
-                println!("{} {}", j + 1, &self.nestest_log[j]);
+            if op.opcode == OpCodes::NOP ||
+                    op.opcode == OpCodes::NOPD ||
+                    op.opcode == OpCodes::NOPI {
+                // println!("{:?}", op);
+            } else {
+                println!("{:?}", op);
+
+                let s: usize = std::cmp::max(0, i as i32 -3) as usize;
+                println!(" ### expected ###");
+                for j in s..i+1 {
+                    println!("{} {}", j + 1, &self.nestest_log[j]);
+                }
+                println!(" ### executed ###");
+                for j in s..i+1 {
+                    println!("{} {}", j + 1, &self.exec_log[j]);
+                }
+                panic!("op compare failed!");
             }
-            println!(" ### executed ###");
-            for j in s..i+1 {
-                println!("{} {}", j + 1, &self.exec_log[j]);
-            }
-            panic!("op compare failed!");
         }
     }
     pub fn run(&mut self, ppu: &mut Ppu, inter: &mut Interrupts) -> u64{
