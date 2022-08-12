@@ -73,15 +73,16 @@ impl<'a> Cpu<'a> {
         let log: String =
             std::fs::read_to_string(nestest_log).unwrap();
         let nestest_log: Vec<String> =
-                log.split("\r\n")
+                log.split("\n")
                     .fold(Vec::new(),
                         |mut s,
                         i| {
             // only cpu related log
-            s.push((&i.to_string()[..28]).to_string());
+            // s.push((&i.to_string()[..28]).to_string());
+            s.push(i.to_string());
             s
         });
-        // println!("{:?}", buf);
+        // println!("{:?}", nestest_log);
         Cpu {
             index: 0,
             cycle: 0,
@@ -381,7 +382,7 @@ impl<'a> Cpu<'a> {
                 } else {
                     self.bread(ppu, data) as u8
                 };
-                let is_carry: bool = data_ & CARRY > 0;
+                let is_carry: bool = self.reg.p & CARRY > 0;
                 self.reg.p = if data_ & 0x80 > 0 {
                     self.reg.p | CARRY
                 } else {
@@ -406,17 +407,22 @@ impl<'a> Cpu<'a> {
                 } else {
                     self.bread(ppu, data) as u8
                 };
-                let is_carry: bool = data_ & 0x01 > 0;
-                self.reg.p = if data_ & 0x80 > 0 {
+                let is_carry: bool = self.reg.p & CARRY > 0;
+                self.reg.p = if data_ & 0x01 > 0 {
                     self.reg.p | CARRY
                 } else {
                     self.reg.p & !CARRY
                 };
-                data_ = ((data_ as u16) >> 1) as u8;
+                data_ = (data_ >> 1) as u8;
                 data_ = if is_carry {
                     data_ | 0x80
                 } else {
                     data_ & !0x80
+                };
+                self.reg.p = if data_ == 0 {
+                    self.reg.p | ZERO
+                } else {
+                    self.reg.p & !ZERO
                 };
                 if mode == AddrModes::ACM {
                     self.reg.a = data_;
@@ -716,7 +722,7 @@ impl<'a> Cpu<'a> {
             // println!(" # exp :{}", &self.nestest_log[i]);
             // println!(" # exe :{}", &self.exec_log[i]);
         } else {
-            let s: usize = std::cmp::max(0, i as i32 -10) as usize;
+            let s: usize = std::cmp::max(0, i as i32 -3) as usize;
             println!(" ### expected ###");
             for j in s..i+1 {
                 println!("{} {}", j + 1, &self.nestest_log[j]);
