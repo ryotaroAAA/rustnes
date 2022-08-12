@@ -1,4 +1,6 @@
 #![allow(unused_variables)]
+#![allow(unused_variables)]
+#![allow(unused_variables)]
 
 use std::cmp;
 
@@ -701,8 +703,55 @@ impl<'a> Cpu<'a> {
                 self.set_flag_after_calc(data__);
                 self.write(ppu, data, data_);
             },
-
-            _=> panic!("invalid opcode {:?}", opcode),
+            OpCodes::ISB => {
+                let data_: u8 =
+                    ((self.bread(ppu, data) as u16 + 1) & 0xFF) as u8;
+                let data__: u16 =
+                    (!data_ & 0xFF) as u16 +
+                    self.reg.a  as u16 + 
+                    if self.reg.p & CARRY > 0 {1} else {0};
+                self.reg.p = 
+                    if !((self.reg.a ^ data_) & 0x80 > 0) &&
+                        ((self.reg.a ^ data__ as u8) & 0x80) > 0 {
+                    self.reg.p | OVERFLOW
+                } else {
+                    self.reg.p & !OVERFLOW
+                };
+                self.reg.p = if data__ > 0xFF {
+                    self.reg.p | CARRY
+                } else {
+                    self.reg.p & !CARRY
+                };
+                self.set_flag_after_calc(data__ as u8);
+                self.reg.a = (data__ & 0xFF) as u8;
+                self.write(ppu, data, data_ as u8);
+            },
+            OpCodes::SLO => {
+                let mut data_: u8 = self.bread(ppu, data);
+                self.reg.p = if data_ & 0x80 > 0 {
+                    self.reg.p | CARRY
+                } else {
+                    self.reg.p & !CARRY
+                };
+                data_ = (((data_ as u16) << 1) & 0xFF) as u8;
+                self.reg.a = (data_ & self.reg.a) & 0xFF;
+                self.set_flag_after_calc(self.reg.a);
+                self.write(ppu, data, data_);
+            },
+            OpCodes::RLA => {
+                let mut data_: u8 =
+                    ((self.bread(ppu, data) as u16) << 1) as u8 +
+                    if self.reg.p & CARRY > 0 {1} else {0};
+                self.reg.p = if (data_ as u16) & 0x100 > 0 {
+                    self.reg.p | CARRY
+                } else {
+                    self.reg.p & !CARRY
+                };
+                self.reg.a = (data_ & self.reg.a) & 0xFF;
+                self.set_flag_after_calc(self.reg.a);
+                self.write(ppu, data, data_);
+            },
+            _=> panic!("non implemented opcode {:?}", opcode),
         }
     }
     fn check_nmi(&mut self, ppu:&mut Ppu, inter: &mut Interrupts) {
