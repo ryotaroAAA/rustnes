@@ -3,6 +3,7 @@
 #![allow(unused_variables)]
 
 use std::cmp;
+use std::process;
 
 use super::Cassette;
 use super::Ram;
@@ -133,6 +134,7 @@ impl<'a> Cpu<'a> {
         match addr {
             0x0000 ..= 0x1FFF => self.wram.write(addr, data),
             0x2000 ..= 0x2007 => ppu.write(addr - 0x2000, data), // ppu write
+            0x4000 ..= 0x4020 => (),
             0x4014 => {
                 let ram_addr_s: u16 = (data * SPRITE_RAM_SIZE as u8) as u16;
                 ppu.write_sprite_ram_addr(0);
@@ -159,7 +161,6 @@ impl<'a> Cpu<'a> {
     fn fetch_op(&mut self, ppu: &mut Ppu) -> FetchedOp{
         let pc = self.reg.pc;
         let index: u8 = self.bfetch(ppu);
-        // println!("{pc:x} {index:x}");
         let op = OP_TABLE.get(&index).unwrap();
         let mut data: u32 = 0;
         let mut add_cycle: u8 = 0;
@@ -733,23 +734,56 @@ impl<'a> Cpu<'a> {
                 } else {
                     self.reg.p & !CARRY
                 };
-                data_ = (((data_ as u16) << 1) & 0xFF) as u8;
-                self.reg.a = (data_ & self.reg.a) & 0xFF;
+                data_ = ((data_ as u16) << 1) as u8;
+                self.reg.a = (data_ | self.reg.a) & 0xFF;
                 self.set_flag_after_calc(self.reg.a);
                 self.write(ppu, data, data_);
             },
             OpCodes::RLA => {
-                let mut data_: u8 =
-                    ((self.bread(ppu, data) as u16) << 1) as u8 +
+                let data_: u16 =
+                    ((self.bread(ppu, data) as u16) << 1) +
                     if self.reg.p & CARRY > 0 {1} else {0};
                 self.reg.p = if (data_ as u16) & 0x100 > 0 {
                     self.reg.p | CARRY
                 } else {
                     self.reg.p & !CARRY
                 };
-                self.reg.a = (data_ & self.reg.a) & 0xFF;
+                self.reg.a = data_ as u8 & self.reg.a;
                 self.set_flag_after_calc(self.reg.a);
-                self.write(ppu, data, data_);
+                self.write(ppu, data, data_ as u8);
+            },
+            OpCodes::SRE => {
+                let mut data_: u16 = self.bread(ppu, data) as u16;
+                self.reg.p = if data_ & 0x01 > 0 {
+                    self.reg.p | CARRY
+                } else {
+                    self.reg.p & !CARRY
+                };
+                data_ = data_ >> 1;
+                self.reg.a = self.reg.a ^ data_ as u8;
+                self.set_flag_after_calc(self.reg.a);
+                self.write(ppu, data, data_ as u8);
+            },
+            OpCodes::RRA => {
+                let mut data_: u16 = self.bread(ppu, data) as u16;
+                let is_carry: bool = data_ as u8 & CARRY > 0;
+                data_ = (data_ >> 1) + if self.reg.p & CARRY > 0 {0x80} else {0x00};
+                let data__: u16 = data_ + self.reg.a as u16+
+                    if is_carry {1} else {0};
+                self.reg.p = if !((self.reg.a ^ data_ as u8) & 0x80 > 0) &&
+                        ((self.reg.a ^ data__ as u8) & 0x80) > 0 {
+                    self.reg.p | OVERFLOW
+                } else {
+                    self.reg.p & !OVERFLOW
+                };
+                self.set_flag_after_calc(data__ as u8);
+                self.reg.a = data__ as u8;
+                self.reg.p = if data__ > 0xFF {
+                    self.reg.p | CARRY
+                } else {
+                    self.reg.p & !CARRY
+                };
+                self.write(ppu, data, data_ as u8);
             },
             _=> panic!("non implemented opcode {:?}", opcode),
         }
@@ -793,6 +827,10 @@ impl<'a> Cpu<'a> {
             self.reg.a, self.reg.x,
             self.reg.y, self.reg.p,
             self.reg.sp, self.cycle);
+        if i >= 8991 {
+            println!("nestest check successed!");
+            process::exit(0);
+        }
         let exec_op = &fmt[..28];
         let exp_op = &self.nestest_log[i];
         self.exec_log.push(exec_op.to_string());
@@ -805,9 +843,7 @@ impl<'a> Cpu<'a> {
                     op.opcode == OpCodes::NOPI {
                 // println!("{:?}", op);
             } else {
-                println!("{:?}", op);
-
-                let s: usize = std::cmp::max(0, i as i32 -3) as usize;
+                let s: usize = std::cmp::max(0, i as i32 -5) as usize;
                 println!(" ### expected ###");
                 for j in s..i+1 {
                     println!("{} {}", j + 1, &self.nestest_log[j]);
