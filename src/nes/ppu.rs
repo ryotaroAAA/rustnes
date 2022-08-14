@@ -1,6 +1,8 @@
 #![allow(unused_variables)]
 
 use core::panic;
+use crate::nes::VRAM_SIZE;
+
 use super::Cassette;
 use super::Interrupts;
 use super::Ram;
@@ -58,7 +60,7 @@ pub const PALETTE_SIZE: usize = 0x20;
 pub const H_SPRITE_NUM: usize = 32;
 pub const V_SPRITE_NUM: usize = 30;
 pub const SPRITE_RAM_SIZE: usize = 0x0100;
-const VRAM_SIZE: usize = 0x0800;
+// const VRAM_SIZE: usize = 0x0800;
 const TILE_SIZE: usize = 8;
 const V_SIZE_WITH_VBLANK: usize = 262;
 const CYCLE_PER_LINE: usize = 341;
@@ -256,11 +258,11 @@ impl<'a> Ppu<'a> {
     }
     // PPU status register
     fn set_sprite_hit(&mut self) {
-        self.sreg |= 0x40
+        self.sreg |= 0x40;
     }
     // PPU status register
     fn clear_sprite_hit(&mut self) {
-        self.sreg &= 0xBF
+        self.sreg &= 0xBF;
     }
     // PPU status register
     fn set_vblank(&mut self) {
@@ -383,6 +385,7 @@ impl<'a> Ppu<'a> {
     }
     // write by cpu
     fn write_vram_addr(&mut self, data: u8) {
+        // println!("{:X} {:X}", self.vram_addr, data);
         if self.is_lower_vram_addr {
             self.vram_addr += data as u16;
             self.is_lower_vram_addr = false;
@@ -393,14 +396,17 @@ impl<'a> Ppu<'a> {
     }
     // write by cpu
     fn write_vram_data(&mut self, data: u8) {
+        // println!("{:X} {:X}", self.vram_addr, data);
         if self.vram_addr >= 0x2000 {
             if self.vram_addr >= 0x3F00 && self.vram_addr < 0x4000 {
                 // pallette
-                dbg!(self.vram_addr, data);
+                // dbg!(self.vram_addr, data);
                 self.palette.write(self.vram_addr - 0x3F00, data);
             } else {
                 // name table, attr table
-                let addr: u16 = self.calc_vram_addr();
+                let addr: u16 = self.calc_vram_addr() % VRAM_SIZE as u16;
+                // dbg!(self.vram_addr, addr, data);
+                // println!(" XXX {:05X} {:05X}", addr, data);
                 self.vram.write(addr, data);
             }
         } else {

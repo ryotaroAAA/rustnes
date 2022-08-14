@@ -81,11 +81,9 @@ impl<'a> Cpu<'a> {
                         |mut s,
                         i| {
             // only cpu related log
-            // s.push((&i.to_string()[..28]).to_string());
             s.push(i.to_string());
             s
         });
-        // println!("{:?}", nestest_log);
         Cpu {
             index: 0,
             cycle: 0,
@@ -102,8 +100,8 @@ impl<'a> Cpu<'a> {
         self.cycle = 0;
         self.has_branched = false;
         self.reg.reset();
-        // self.reg.pc = self.wread(ppu, 0xFFFC);
-        self.reg.pc = 0xc000;
+        self.reg.pc = self.wread(ppu, 0xFFFC);
+        // self.reg.pc = 0xc000;
     }
     fn bread(&mut self, ppu: &mut Ppu, addr: u16) -> u8 {
         self.read(ppu, addr)
@@ -827,12 +825,13 @@ impl<'a> Cpu<'a> {
             self.reg.a, self.reg.x,
             self.reg.y, self.reg.p,
             self.reg.sp, self.cycle);
+        return;
         if i >= 8991 {
             println!("nestest check successed!");
             process::exit(0);
         }
         let exec_op = &fmt[..28];
-        let exp_op = &self.nestest_log[i];
+        let exp_op = &self.nestest_log[i][..28];
         self.exec_log.push(exec_op.to_string());
         if exec_op == exp_op {
             // println!(" # exp :{}", &self.nestest_log[i]);
@@ -861,7 +860,7 @@ impl<'a> Cpu<'a> {
         self.check_irq(ppu, inter);
         let pc = self.reg.pc;
         let mut fetched_op: FetchedOp = self.fetch_op(ppu);
-        self.show_op(pc, &fetched_op);
+        // self.show_op(pc, &fetched_op);
         self.exec(ppu, &mut fetched_op);
         let cycle: u64 = 
             (fetched_op.op.cycle + fetched_op.add_cycle) as u64 +

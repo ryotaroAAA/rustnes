@@ -17,8 +17,8 @@ use crate::nes::render::*;
 use crate::nes::ram::Ram;
 use crate::nes::cassette::Cassette;
 
-const WRAM_SIZE: usize = 0x0800;
-const VRAM_SIZE: usize = 0x0800;
+const WRAM_SIZE: usize = 0x0800; // 2KiB
+const VRAM_SIZE: usize = 0x0800; // 2KiB
 
 #[derive(Debug)]
 pub struct Context<'a> {
