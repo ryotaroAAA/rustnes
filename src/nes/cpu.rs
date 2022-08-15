@@ -21,6 +21,84 @@ const OVERFLOW: u8 = 1 << 6;
 const NEGATIVE: u8 = 1 << 7;
 
 #[derive(Debug)]
+struct KeyPadRegister {
+    a: bool,
+    b: bool,
+    start: bool,
+    select: bool,
+    up: bool,
+    down: bool,
+    left: bool,
+    right: bool,
+    switch: bool,
+    count: u32,
+    io_reg: i8
+}
+
+impl KeyPadRegister {
+    fn new() -> KeyPadRegister {
+        KeyPadRegister {
+            a: false,
+            b: false,
+            start: false,
+            select: false,
+            up: false,
+            down: false,
+            left: false,
+            right: false,
+            switch: false,
+            count: 0,
+            io_reg: 0
+        }
+    }
+    pub fn reset(&mut self) {
+        if self.switch {
+            self.a = false;
+            self.b = false;
+            self.start = false;
+            self.select = false;
+            self.up = false;
+            self.down = false;
+            self.left = false;
+            self.right = false;
+            self.switch = false;
+        } else {
+            self.switch = true;
+        }
+        self.count = 0;
+        self.io_reg = 0;
+    }
+    pub fn read(&mut self) -> u8 {
+        self.count += 1;
+        let mut pad_val: u8 = 0;
+        match self.count {
+            0 => (),
+            1 => pad_val = if self.a {1} else {0},
+            2 => pad_val = if self.b {1} else {0},
+            3 => pad_val = if self.start {1} else {0},
+            4 => pad_val = if self.select {1} else {0},
+            5 => pad_val = if self.up {1} else {0},
+            6 => pad_val = if self.down {1} else {0},
+            7 => pad_val = if self.left {1} else {0},
+            8 => pad_val = if self.right {1} else {0},
+            // _ => self.count = 0,
+            _ => (),
+        }
+        pad_val
+    }
+    pub fn write(&mut self, data: u8) {
+        if self.io_reg == 0 && data & 0x01 == 1 {
+            self.io_reg = 1;
+        } else if self.io_reg == 1 && data & 0x01 == 0 {
+            self.reset()
+        } else {
+            println!("{} {}", self.io_reg, data);
+            panic!("not implemented!");
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct Register {
     a: u8,
     x: u8,
@@ -68,6 +146,8 @@ pub struct Cpu<'a> {
     reg: Register,
     cas: &'a Cassette,
     wram: &'a mut Ram,
+    keypad1: KeyPadRegister,
+    keypad2: KeyPadRegister
 }
 
 impl<'a> Cpu<'a> {
@@ -93,6 +173,8 @@ impl<'a> Cpu<'a> {
             reg: Register::new(),
             cas: cas,
             wram: wram,
+            keypad1: KeyPadRegister::new(),
+            keypad2: KeyPadRegister::new()
         }
     }
     pub fn reset(&mut self, ppu:&mut Ppu) {
@@ -113,8 +195,8 @@ impl<'a> Cpu<'a> {
         match addr {
             0x0000 ..= 0x1FFF => self.wram.read(addr),
             0x2000 ..= 0x3FFF => ppu.read((addr - 0x2000) % 8), // ppu read
-            0x4016 => 0, // joypad 1
-            0x4017 => 0, // joypad 1
+            0x4016 => self.keypad1.read(), // joypad 1
+            0x4017 => self.keypad2.read(), // joypad 1
             0x4000 ..= 0x401F => 0, // apu
             0x6000 ..= 0x7FFF => 0, // extram
             0x8000 ..= 0xBFFF => self.cas.prog_rom_read(addr - 0x8000),
@@ -140,8 +222,8 @@ impl<'a> Cpu<'a> {
                     ppu.write_sprite_ram_data(self.wram.read(ram_addr_s + i as u16));
                 }
             }, // dma 
-            0x4016 => (), // keypad 1p
-            0x4017 => (), // keypad 2p
+            0x4016 => self.keypad1.write(data), // keypad 1p
+            0x4017 => self.keypad2.write(data), // keypad 2p
             0x6000 ..= 0x7FFF => self.wram.write(addr - 0x8000, data),
             _ => panic!("invalid addr {:#X}", addr)
         }

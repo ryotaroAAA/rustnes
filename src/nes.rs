@@ -50,7 +50,7 @@ pub fn run(cassette_path: &str) {
     let mut wram: Ram = Ram::new(WRAM_SIZE);
     let mut vram: Ram = Ram::new(VRAM_SIZE);
     let cas: Cassette = Cassette::new(cassette_path);
-    let mut inter: Interrupts = Interrupts::new();;
+    let mut inter: Interrupts = Interrupts::new();
     let mut ppu: Ppu = Ppu::new(&cas, &mut vram);
     let mut cpu: Cpu = Cpu::new(&cas, &mut wram);
     let mut game: Game = Game::new().unwrap();
@@ -65,7 +65,8 @@ pub fn run(cassette_path: &str) {
         
         if is_render_ready {
             render.render(&ppu.image);
-            let status: GameStatus = game.run(&render.data).unwrap();
+            let status: GameStatus =
+                game.run(&render.data).unwrap();
             if status == GameStatus::Exit {
                 println!("Exit...");
                 break;
