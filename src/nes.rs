@@ -1,3 +1,4 @@
+pub mod apu;
 pub mod cassette;
 pub mod cpu;
 pub mod interrupts;
@@ -9,6 +10,7 @@ pub mod optable;
 
 extern crate sdl2;
 
+use crate::nes::apu::*;
 use crate::nes::cpu::*;
 use crate::nes::interrupts::*;
 use crate::nes::game::*;
@@ -17,42 +19,15 @@ use crate::nes::render::*;
 use crate::nes::ram::Ram;
 use crate::nes::cassette::Cassette;
 
-use std::panic;
-
 const WRAM_SIZE: usize = 0x0800; // 2KiB
 const VRAM_SIZE: usize = 0x0800; // 2KiB
-
-#[derive(Debug)]
-pub struct Context<'a> {
-    cas: &'a Cassette,
-    wram: &'a mut Ram,
-    vram: &'a mut Ram,
-    // image: RefMut<'a, Image>,
-    // cpu: &'a mut Cpu<'a>,
-}
-
-impl<'a> Context<'a> {
-    pub fn new (
-        cas: &'a Cassette,
-        wram: &'a mut Ram,
-        vram: &'a mut Ram,
-        // image: RefMut<'a, Image>,
-        // cpu: Test
-    ) -> Context<'a> {
-        Context {
-            cas,
-            wram,
-            vram,
-            // image,
-        }
-    }
-}
 
 pub fn run(cassette_path: &str) {
     let mut wram: Ram = Ram::new(WRAM_SIZE);
     let mut vram: Ram = Ram::new(VRAM_SIZE);
     let cas: Cassette = Cassette::new(cassette_path);
-    let mut inter: Interrupts = Interrupts::new();
+    let mut interrupts: Interrupts = Interrupts::new();
+    let mut apu: Apu = Apu::new();
     let mut ppu: Ppu = Ppu::new(&cas, &mut vram);
     let mut cpu: Cpu = Cpu::new(&cas, &mut wram);
     let mut game: Game = Game::new().unwrap();
@@ -62,9 +37,10 @@ pub fn run(cassette_path: &str) {
     loop {
         let status: GameStatus =
             game.check_key(&mut cpu).unwrap();
-        let cycle: u64 = cpu.run(&mut ppu, &mut inter);
-        let is_render_ready: bool = ppu.run(cycle, &mut inter);
-        
+        let cycle: u64 = cpu.run(&mut ppu, &mut apu, &mut interrupts);
+        let is_render_ready: bool = ppu.run(cycle, &mut interrupts);
+        apu.run(cycle, &mut interrupts);        
+
         if is_render_ready {
             render.render(&ppu.image);
             game.update(&render.data).unwrap();
