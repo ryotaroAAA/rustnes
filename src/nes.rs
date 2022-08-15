@@ -17,6 +17,8 @@ use crate::nes::render::*;
 use crate::nes::ram::Ram;
 use crate::nes::cassette::Cassette;
 
+use std::panic;
+
 const WRAM_SIZE: usize = 0x0800; // 2KiB
 const VRAM_SIZE: usize = 0x0800; // 2KiB
 
@@ -57,24 +59,19 @@ pub fn run(cassette_path: &str) {
     let mut render: Render = Render::new();
 
     cpu.reset(&mut ppu);
-
-    let mut count = 0;
     loop {
+        let status: GameStatus =
+            game.check_key(&mut cpu).unwrap();
         let cycle: u64 = cpu.run(&mut ppu, &mut inter);
         let is_render_ready: bool = ppu.run(cycle, &mut inter);
         
         if is_render_ready {
             render.render(&ppu.image);
-            let status: GameStatus =
-                game.run(&render.data).unwrap();
-            if status == GameStatus::Exit {
-                println!("Exit...");
-                break;
-            }
+            game.update(&render.data).unwrap();
         }
-        // count += 1;
-        // if count > 100 {
-        //     break;
-        // }
+        if status == GameStatus::Exit {
+            println!("Exit...");
+            break;
+        }
     }
 }

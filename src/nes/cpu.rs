@@ -21,18 +21,18 @@ const OVERFLOW: u8 = 1 << 6;
 const NEGATIVE: u8 = 1 << 7;
 
 #[derive(Debug)]
-struct KeyPadRegister {
-    a: bool,
-    b: bool,
-    start: bool,
-    select: bool,
-    up: bool,
-    down: bool,
-    left: bool,
-    right: bool,
-    switch: bool,
-    count: u32,
-    io_reg: i8
+pub struct KeyPadRegister {
+    pub a: bool,
+    pub b: bool,
+    pub start: bool,
+    pub select: bool,
+    pub up: bool,
+    pub down: bool,
+    pub left: bool,
+    pub right: bool,
+    addr: u16,
+    io_reg: i8,
+    pub wait: bool
 }
 
 impl KeyPadRegister {
@@ -46,13 +46,15 @@ impl KeyPadRegister {
             down: false,
             left: false,
             right: false,
-            switch: false,
-            count: 0,
-            io_reg: 0
+            addr: 0,
+            io_reg: 0,
+            wait: false,
         }
     }
     pub fn reset(&mut self) {
-        if self.switch {
+        if self.wait {
+            self.wait = false;
+        } else {
             self.a = false;
             self.b = false;
             self.start = false;
@@ -61,39 +63,31 @@ impl KeyPadRegister {
             self.down = false;
             self.left = false;
             self.right = false;
-            self.switch = false;
-        } else {
-            self.switch = true;
         }
-        self.count = 0;
-        self.io_reg = 0;
     }
     pub fn read(&mut self) -> u8 {
-        self.count += 1;
         let mut pad_val: u8 = 0;
-        match self.count {
-            0 => (),
-            1 => pad_val = if self.a {1} else {0},
-            2 => pad_val = if self.b {1} else {0},
-            3 => pad_val = if self.start {1} else {0},
-            4 => pad_val = if self.select {1} else {0},
-            5 => pad_val = if self.up {1} else {0},
-            6 => pad_val = if self.down {1} else {0},
-            7 => pad_val = if self.left {1} else {0},
-            8 => pad_val = if self.right {1} else {0},
-            // _ => self.count = 0,
+        match self.addr {
+            0 => pad_val = if self.a {1} else {0},
+            1 => pad_val = if self.b {1} else {0},
+            2 => pad_val = if self.start {1} else {0},
+            3 => pad_val = if self.select {1} else {0},
+            4 => pad_val = if self.up {1} else {0},
+            5 => pad_val = if self.down {1} else {0},
+            6 => pad_val = if self.left {1} else {0},
+            7 => pad_val = if self.right {1} else {0},
             _ => (),
         }
+        self.addr += 1;
         pad_val
     }
     pub fn write(&mut self, data: u8) {
         if self.io_reg == 0 && data & 0x01 == 1 {
             self.io_reg = 1;
         } else if self.io_reg == 1 && data & 0x01 == 0 {
-            self.reset()
-        } else {
-            println!("{} {}", self.io_reg, data);
-            panic!("not implemented!");
+            self.reset();
+            self.addr = 0;
+            self.io_reg = 0;
         }
     }
 }
@@ -138,16 +132,16 @@ struct FetchedOp {
 
 #[derive(Debug)]
 pub struct Cpu<'a> {
-    index: u64,
+    pub index: u64,
     cycle: u64,
     has_branched: bool,
-    exec_log: Vec<String>,
+    pub exec_log: Vec<String>,
     nestest_log: Vec<String>,
     reg: Register,
     cas: &'a Cassette,
     wram: &'a mut Ram,
-    keypad1: KeyPadRegister,
-    keypad2: KeyPadRegister
+    pub keypad1: KeyPadRegister,
+    pub keypad2: KeyPadRegister
 }
 
 impl<'a> Cpu<'a> {
@@ -192,11 +186,12 @@ impl<'a> Cpu<'a> {
         self.read(ppu, addr) as u16 + ((self.read(ppu, addr +1) as u16) << 8)
     }
     fn read(&mut self, ppu: &mut Ppu, addr: u16) -> u8 {
+        // println!(" read {:#X}", addr);
         match addr {
             0x0000 ..= 0x1FFF => self.wram.read(addr),
             0x2000 ..= 0x3FFF => ppu.read((addr - 0x2000) % 8), // ppu read
-            0x4016 => self.keypad1.read(), // joypad 1
-            0x4017 => self.keypad2.read(), // joypad 1
+            0x4016 => self.keypad1.read(), // keypad 1p
+            0x4017 => self.keypad2.read(), // keypad 1p
             0x4000 ..= 0x401F => 0, // apu
             0x6000 ..= 0x7FFF => 0, // extram
             0x8000 ..= 0xBFFF => self.cas.prog_rom_read(addr - 0x8000),
@@ -211,10 +206,10 @@ impl<'a> Cpu<'a> {
         }
     }
     fn write(&mut self, ppu: &mut Ppu, addr: u16, data: u8) {
+        // println!(" write {:#X} {:#X}", addr, data);
         match addr {
             0x0000 ..= 0x1FFF => self.wram.write(addr, data),
             0x2000 ..= 0x2007 => ppu.write(addr - 0x2000, data), // ppu write
-            0x4000 ..= 0x4020 => (),
             0x4014 => {
                 let ram_addr_s: u16 = (data * SPRITE_RAM_SIZE as u8) as u16;
                 ppu.write_sprite_ram_addr(0);
@@ -222,8 +217,11 @@ impl<'a> Cpu<'a> {
                     ppu.write_sprite_ram_data(self.wram.read(ram_addr_s + i as u16));
                 }
             }, // dma 
-            0x4016 => self.keypad1.write(data), // keypad 1p
+            0x4016 => {
+                self.keypad1.write(data); // keypad 1p
+            },
             0x4017 => self.keypad2.write(data), // keypad 2p
+            0x4000 ..= 0x4020 => (),
             0x6000 ..= 0x7FFF => self.wram.write(addr - 0x8000, data),
             _ => panic!("invalid addr {:#X}", addr)
         }
@@ -896,22 +894,27 @@ impl<'a> Cpu<'a> {
     fn show_op(&mut self, pc: u16, fop: &FetchedOp) {
         let i: usize = self.index as usize;
         let op: OpInfo = fop.op;
-        println!("{:05} {:04X} {:3} {:4} {:04X} A:{:02X} X:{:02X} Y:{:02X} P:{:02X} SP:{:04X} {}",
+        let fmt: String = format!("{:05} {:04X} {:3} {:4} {:04X} A:{:02X} X:{:02X} Y:{:02X} P:{:02X} SP:{:04X} {}",
             i + 1, pc, op.opcode.to_string(),
             op.mode.to_string(), fop.data,
             self.reg.a, self.reg.x,
             self.reg.y, self.reg.p,
             self.reg.sp, self.cycle);
+        println!("{fmt}");
+        self.exec_log.push(fmt);
+    }
+    fn nestest(&mut self, pc: u16, fop: &FetchedOp) {
+        let i: usize = self.index as usize;
+        let op: OpInfo = fop.op;
+        if i >= 8991 {
+            println!("nestest check successed!");
+            process::exit(0);
+        }
         let fmt = format!("{:04X} {:3} A:{:02X} X:{:02X} Y:{:02X} P:{:02X} SP:{:04X} {}",
             pc, op.opcode.to_string(),
             self.reg.a, self.reg.x,
             self.reg.y, self.reg.p,
             self.reg.sp, self.cycle);
-        return;
-        if i >= 8991 {
-            println!("nestest check successed!");
-            process::exit(0);
-        }
         let exec_op = &fmt[..28];
         let exp_op = &self.nestest_log[i][..28];
         self.exec_log.push(exec_op.to_string());
@@ -943,6 +946,7 @@ impl<'a> Cpu<'a> {
         let pc = self.reg.pc;
         let mut fetched_op: FetchedOp = self.fetch_op(ppu);
         // self.show_op(pc, &fetched_op);
+        // self.nestest(pc, &fetched_op);
         self.exec(ppu, &mut fetched_op);
         let cycle: u64 = 
             (fetched_op.op.cycle + fetched_op.add_cycle) as u64 +

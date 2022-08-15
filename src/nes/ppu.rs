@@ -146,7 +146,6 @@ impl Palette {
         palette
     }
     fn write(&mut self, addr: u16, data: u8) {
-        dbg!(addr, data);
         let addr_: usize = self.get_palette_addr(addr) as usize;
         self.ram.data[addr_] = data;
     }
