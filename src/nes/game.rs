@@ -127,7 +127,7 @@ impl Game {
         }
         self.canvas.present();
         self.fps_manager.delay();
-        // dbg!(self.fps_manager.get_framerate());
+        dbg!(self.fps_manager.get_framerate());
         
         Ok(GameStatus::Ok)
     }

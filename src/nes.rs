@@ -33,7 +33,7 @@ pub fn run(cassette_path: &str) {
     let mut game: Game = Game::new().unwrap();
     let mut render: Render = Render::new();
 
-    cpu.reset(&mut ppu);
+    cpu.reset(&mut ppu, &mut apu, &mut interrupts);
     loop {
         let status: GameStatus =
             game.check_key(&mut cpu).unwrap();

@@ -80,6 +80,9 @@ impl KeyPadRegister {
             _ => (),
         }
         self.addr += 1;
+        // if pad_val > 0 {
+        //     println!("{}", pad_val);
+        // }
         pad_val
     }
     pub fn write(&mut self, data: u8) {
@@ -172,7 +175,7 @@ impl<'a> Cpu<'a> {
             keypad2: KeyPadRegister::new()
         }
     }
-    pub fn reset(&mut self, ppu: &mut Ppu, apu: &mut Apu, interrupts: &mut Interrupts, interrupts: &mut Interrupts) {
+    pub fn reset(&mut self, ppu: &mut Ppu, apu: &mut Apu, interrupts: &mut Interrupts) {
         self.index = 0;
         self.cycle = 0;
         self.has_branched = false;
@@ -250,64 +253,66 @@ impl<'a> Cpu<'a> {
         }
     }
     fn bfetch(&mut self, ppu: &mut Ppu, apu: &mut Apu, interrupts: &mut Interrupts, ) -> u8{
-        let data: u8 = self.bread(ppu, apu, self.reg.pc);
+        let data: u8 = self.bread(ppu, apu, interrupts, self.reg.pc);
         self.reg.pc += 1;
         data
     }
     fn wfetch(&mut self, ppu: &mut Ppu, apu: &mut Apu, interrupts: &mut Interrupts, ) -> u16{
-        let data: u16 = self.wread(ppu, apu, self.reg.pc);
+        let data: u16 = self.wread(ppu, apu, interrupts, self.reg.pc);
         self.reg.pc += 2;
         data
     }
     fn fetch_op(&mut self, ppu: &mut Ppu, apu: &mut Apu, interrupts: &mut Interrupts, ) -> FetchedOp{
         let pc = self.reg.pc;
-        let index: u8 = self.bfetch(ppu, apu);
+        let index: u8 = self.bfetch(ppu, apu, interrupts);
         let op = OP_TABLE.get(&index).unwrap();
         let mut data: u32 = 0;
         let mut add_cycle: u8 = 0;
         match op.mode {
             AddrModes::ACM | AddrModes::IMPL => (),
-            AddrModes::IMD | AddrModes::ZPG => data = self.bfetch(ppu, apu) as u32,
+            AddrModes::IMD | AddrModes::ZPG => {
+                data = self.bfetch(ppu, apu, interrupts) as u32
+            },
             AddrModes::REL => {
-                let addr: u32 = self.bfetch(ppu, apu) as u32;
+                let addr: u32 = self.bfetch(ppu, apu, interrupts) as u32;
                 data = ((addr + self.reg.pc as u32) - 
                     if addr < 0x80 {0} else {0x100}) as u32;
             },
             AddrModes::ZPGX => data =
-                ((self.reg.x as u16 + self.bfetch(ppu, apu) as u16) & 0xFF) as u32,
+                ((self.reg.x as u16 + self.bfetch(ppu, apu, interrupts) as u16) & 0xFF) as u32,
             AddrModes::ZPGY => data =
-                ((self.reg.y as u16 + self.bfetch(ppu, apu) as u16) & 0xFF) as u32,
-            AddrModes::ABS => data = self.wfetch(ppu, apu) as u32,
+                ((self.reg.y as u16 + self.bfetch(ppu, apu, interrupts) as u16) & 0xFF) as u32,
+            AddrModes::ABS => data = self.wfetch(ppu, apu, interrupts) as u32,
             AddrModes::ABSX => {
-                let addr: u32 = self.wfetch(ppu, apu) as u32;
+                let addr: u32 = self.wfetch(ppu, apu, interrupts) as u32;
                 data = self.reg.x as u32 + addr;
                 add_cycle = if ((data ^ addr) & 0xFF00) > 0 {1} else {0};
             },
             AddrModes::ABSY => {
-                let addr: u32 = self.wfetch(ppu, apu) as u32;
+                let addr: u32 = self.wfetch(ppu, apu, interrupts) as u32;
                 data = self.reg.y as u32 + addr;
                 add_cycle = if ((data ^ addr) & 0xFF00) > 0 {1} else {0};
             },
             AddrModes::INDX => {
                 let baddr: u16 =
-                    (self.reg.x as u16 + self.bfetch(ppu, apu) as u16) & 0xFF;
+                    (self.reg.x as u16 + self.bfetch(ppu, apu, interrupts) as u16) & 0xFF;
                 let baddr_: u16 = (baddr + 1) & 0xFF;
-                data = (self.bread(ppu, apu, baddr) as u16 +
-                    ((self.bread(ppu, apu, baddr_) as u16) << 8)) as u32;
+                data = (self.bread(ppu, apu, interrupts, baddr) as u16 +
+                    ((self.bread(ppu, apu, interrupts, baddr_) as u16) << 8)) as u32;
                 },
             AddrModes::INDY => {
-                let baddr: u16 = self.bfetch(ppu, apu) as u16;
+                let baddr: u16 = self.bfetch(ppu, apu, interrupts) as u16;
                 let baddr_: u16 = (baddr + 1) & 0xFF;
-                let data_ = (self.bread(ppu, apu, baddr) as u16 +
-                    ((self.bread(ppu, apu, baddr_) as u16) << 8)) as u32;
+                let data_ = (self.bread(ppu, apu, interrupts, baddr) as u16 +
+                    ((self.bread(ppu, apu, interrupts, baddr_) as u16) << 8)) as u32;
                 data = data_ as u32 + self.reg.y as u32;
                 add_cycle = if ((data ^ data_) & 0xFF00) > 0 {1} else {0};
             },
             AddrModes::ABSIND => {
-                let baddr: u16 = self.wfetch(ppu, apu);
+                let baddr: u16 = self.wfetch(ppu, apu, interrupts);
                 let baddr_: u16 = (baddr & 0xFF00) + ((baddr + 1) & 0xFF);
-                data = (self.bread(ppu, apu, baddr) as u16 +
-                    ((self.bread(ppu, apu, baddr_) as u16) << 8)) as u32;
+                data = (self.bread(ppu, apu, interrupts, baddr) as u16 +
+                    ((self.bread(ppu, apu, interrupts, baddr_) as u16) << 8)) as u32;
             },
             _=> panic!("invelid mode {:?}", op.mode),
         }
@@ -335,26 +340,26 @@ impl<'a> Cpu<'a> {
         self.has_branched = true;
     }
     fn push(&mut self, ppu: &mut Ppu, apu: &mut Apu, interrupts: &mut Interrupts, data: u8) {
-        self.write(ppu, apu, self.reg.sp & 0xFF | 0x100, data);
+        self.write(ppu, apu, interrupts, self.reg.sp & 0xFF | 0x100, data);
         self.reg.sp -= 1;
     }
     fn push_pc(&mut self, ppu: &mut Ppu, apu: &mut Apu, interrupts: &mut Interrupts) {
-        self.push(ppu, apu, (self.reg.pc >> 8) as u8);
-        self.push(ppu, apu, (self.reg.pc & 0xFF) as u8);
+        self.push(ppu, apu, interrupts, (self.reg.pc >> 8) as u8);
+        self.push(ppu, apu, interrupts, (self.reg.pc & 0xFF) as u8);
     }
     fn push_reg_status(&mut self, ppu: &mut Ppu, apu: &mut Apu, interrupts: &mut Interrupts) {
-        self.push(ppu, apu, self.reg.p);
+        self.push(ppu, apu, interrupts, self.reg.p);
     }
     fn pop(&mut self, ppu: &mut Ppu, apu: &mut Apu, interrupts: &mut Interrupts, ) -> u8 {
         self.reg.sp += 1;
-        self.bread(ppu, apu, self.reg.sp & 0xFF | 0x100)
+        self.bread(ppu, apu, interrupts, self.reg.sp & 0xFF | 0x100)
     }
     fn pop_pc(&mut self, ppu: &mut Ppu, apu: &mut Apu, interrupts: &mut Interrupts) {
-        self.reg.pc = self.pop(ppu, apu) as u16;
-        self.reg.pc += (self.pop(ppu, apu) as u16) << 8;
+        self.reg.pc = self.pop(ppu, apu, interrupts) as u16;
+        self.reg.pc += (self.pop(ppu, apu, interrupts) as u16) << 8;
     }
     fn pop_reg_status(&mut self, ppu: &mut Ppu, apu: &mut Apu, interrupts: &mut Interrupts) {
-        self.reg.p = self.pop(ppu, apu);
+        self.reg.p = self.pop(ppu, apu, interrupts);
     }
     fn exec(&mut self, ppu: &mut Ppu, apu: &mut Apu, interrupts: &mut Interrupts, fop: &mut FetchedOp) {
         let opcode: OpCodes = fop.op.opcode;
@@ -458,7 +463,7 @@ impl<'a> Cpu<'a> {
                 if mode == AddrModes::ACM {
                     self.reg.a = data_;
                 } else {
-                    self.write(ppu, apu, data, data_);
+                    self.write(ppu, apu, interrupts, data, data_);
                 }
                 self.set_flag_after_calc(data_);
             },
@@ -482,7 +487,7 @@ impl<'a> Cpu<'a> {
                 if mode == AddrModes::ACM {
                     self.reg.a = data_;
                 } else {
-                    self.write(ppu, apu, data, data_);
+                    self.write(ppu, apu, interrupts, data, data_);
                 }
                 self.reg.p &= !NEGATIVE;
             },
@@ -507,7 +512,7 @@ impl<'a> Cpu<'a> {
                 if mode == AddrModes::ACM {
                     self.reg.a = data_;
                 } else {
-                    self.write(ppu, apu, data, data_);
+                    self.write(ppu, apu, interrupts, data, data_);
                 }
                 self.set_flag_after_calc(data_);
             },
@@ -537,7 +542,7 @@ impl<'a> Cpu<'a> {
                 if mode == AddrModes::ACM {
                     self.reg.a = data_;
                 } else {
-                    self.write(ppu, apu, data, data_);
+                    self.write(ppu, apu, interrupts, data, data_);
                 }
                 self.set_flag_after_calc(data_);
             },
@@ -605,29 +610,29 @@ impl<'a> Cpu<'a> {
             OpCodes::JMP => self.reg.pc = data,
             OpCodes::JSR => {
                 let pc: u16 = self.reg.pc - 1;
-                self.push(ppu, apu, (pc >> 8) as u8 & 0xFF);
-                self.push(ppu, apu, pc as u8 & 0xFF);
+                self.push(ppu, apu, interrupts, (pc >> 8) as u8 & 0xFF);
+                self.push(ppu, apu, interrupts, pc as u8 & 0xFF);
                 self.reg.pc = data;
             },
             OpCodes::RTS => {
-                self.pop_pc(ppu, apu);
+                self.pop_pc(ppu, apu, interrupts);
                 self.reg.pc += 1;
             },
             // interrupt
             OpCodes::BRK => {
                 self.reg.pc += 1;
-                self.push_pc(ppu, apu);
-                self.push_reg_status(ppu, apu);
+                self.push_pc(ppu, apu, interrupts);
+                self.push_reg_status(ppu, apu, interrupts);
                 if (self.reg.p & INTERRUPT) == 0 {
-                    self.reg.pc = self.wread(ppu, apu, 0xFFFE);
+                    self.reg.pc = self.wread(ppu, apu, interrupts, 0xFFFE);
                 }
                 self.reg.p |= INTERRUPT;
                 self.reg.pc -= 1;
             },
             OpCodes::RTI => {
                 let is_break: bool = self.reg.p & BREAK > 0;
-                self.pop_reg_status(ppu, apu);
-                self.pop_pc(ppu, apu);
+                self.pop_reg_status(ppu, apu, interrupts);
+                self.pop_pc(ppu, apu, interrupts);
                 self.reg.p |= if is_break {BREAK} else {0};
                 self.reg.p |= RESERVED;
             },
@@ -677,7 +682,7 @@ impl<'a> Cpu<'a> {
             // inc/dec
             OpCodes::INC => {
                 let data_ :u8 = (self.bread(ppu, apu, interrupts, data) as u16 + 1) as u8;
-                self.write(ppu, apu, data, data_);
+                self.write(ppu, apu, interrupts, data, data_);
                 self.set_flag_after_calc(data_);
             },
             OpCodes::INX => {
@@ -690,7 +695,7 @@ impl<'a> Cpu<'a> {
             },
             OpCodes::DEC => {
                 let data_ :u8 = (self.bread(ppu, apu, interrupts, data) as i16 - 1) as u8;
-                self.write(ppu, apu, data, data_);
+                self.write(ppu, apu, interrupts, data, data_);
                 self.set_flag_after_calc(data_);
             },
             OpCodes::DEX => {
@@ -725,9 +730,9 @@ impl<'a> Cpu<'a> {
                 self.set_flag_after_calc(data_);
             },
             // store
-            OpCodes::STA => self.write(ppu, apu, data, self.reg.a),
-            OpCodes::STX => self.write(ppu, apu, data, self.reg.x),
-            OpCodes::STY => self.write(ppu, apu, data, self.reg.y),
+            OpCodes::STA => self.write(ppu, apu, interrupts, data, self.reg.a),
+            OpCodes::STX => self.write(ppu, apu, interrupts, data, self.reg.x),
+            OpCodes::STY => self.write(ppu, apu, interrupts, data, self.reg.y),
             // transfer
             OpCodes::TAX => {
                 self.reg.x = self.reg.a;
@@ -754,12 +759,12 @@ impl<'a> Cpu<'a> {
             },
             // stack
             OpCodes::PHA => {
-                self.push(ppu, apu, self.reg.a);
+                self.push(ppu, apu, interrupts, self.reg.a);
             },
             OpCodes::PHP => {
                 let is_break: bool = self.reg.p & BREAK > 0;
                 self.reg.p |= BREAK;
-                self.push_reg_status(ppu, apu);
+                self.push_reg_status(ppu, apu, interrupts);
                 self.reg.p = if is_break {
                     self.reg.p | BREAK
                 } else {
@@ -767,12 +772,12 @@ impl<'a> Cpu<'a> {
                 };
             },
             OpCodes::PLA => {
-                self.reg.a = self.pop(ppu, apu);
+                self.reg.a = self.pop(ppu, apu, interrupts);
                 self.set_flag_after_calc(self.reg.a);
             },
             OpCodes::PLP => {
                 let is_break: bool = self.reg.p & BREAK > 0;
-                self.pop_reg_status(ppu, apu);
+                self.pop_reg_status(ppu, apu, interrupts);
                 self.reg.p |= BREAK;
                 self.reg.p = if is_break {
                     self.reg.p | BREAK
@@ -796,14 +801,14 @@ impl<'a> Cpu<'a> {
                 self.set_flag_after_calc(self.reg.a);
             },
             OpCodes::SAX => {
-                self.write(ppu, apu, data, self.reg.a & self.reg.x);
+                self.write(ppu, apu, interrupts, data, self.reg.a & self.reg.x);
             },
             OpCodes::DCP => {
                 let data_: u8 = ((self.bread(ppu, apu, interrupts, data) as i16 - 1) & 0xFF) as u8;
                 let data__ =
                     (self.reg.a as i16 - data_ as i16) as u8;
                 self.set_flag_after_calc(data__);
-                self.write(ppu, apu, data, data_);
+                self.write(ppu, apu, interrupts, data, data_);
             },
             OpCodes::ISB => {
                 let data_: u8 =
@@ -826,7 +831,7 @@ impl<'a> Cpu<'a> {
                 };
                 self.set_flag_after_calc(data__ as u8);
                 self.reg.a = (data__ & 0xFF) as u8;
-                self.write(ppu, apu, data, data_ as u8);
+                self.write(ppu, apu, interrupts, data, data_ as u8);
             },
             OpCodes::SLO => {
                 let mut data_: u8 = self.bread(ppu, apu, interrupts, data);
@@ -838,7 +843,7 @@ impl<'a> Cpu<'a> {
                 data_ = ((data_ as u16) << 1) as u8;
                 self.reg.a = (data_ | self.reg.a) & 0xFF;
                 self.set_flag_after_calc(self.reg.a);
-                self.write(ppu, apu, data, data_);
+                self.write(ppu, apu, interrupts, data, data_);
             },
             OpCodes::RLA => {
                 let data_: u16 =
@@ -851,7 +856,7 @@ impl<'a> Cpu<'a> {
                 };
                 self.reg.a = data_ as u8 & self.reg.a;
                 self.set_flag_after_calc(self.reg.a);
-                self.write(ppu, apu, data, data_ as u8);
+                self.write(ppu, apu, interrupts, data, data_ as u8);
             },
             OpCodes::SRE => {
                 let mut data_: u16 = self.bread(ppu, apu, interrupts, data) as u16;
@@ -863,7 +868,7 @@ impl<'a> Cpu<'a> {
                 data_ = data_ >> 1;
                 self.reg.a = self.reg.a ^ data_ as u8;
                 self.set_flag_after_calc(self.reg.a);
-                self.write(ppu, apu, data, data_ as u8);
+                self.write(ppu, apu, interrupts, data, data_ as u8);
             },
             OpCodes::RRA => {
                 let mut data_: u16 = self.bread(ppu, apu, interrupts, data) as u16;
@@ -884,35 +889,35 @@ impl<'a> Cpu<'a> {
                 } else {
                     self.reg.p & !CARRY
                 };
-                self.write(ppu, apu, data, data_ as u8);
+                self.write(ppu, apu, interrupts, data, data_ as u8);
             },
             _=> panic!("non implemented opcode {:?}", opcode),
         }
     }
-    fn check_nmi(&mut self, ppu: &mut Ppu, apu: &mut Apu, interrupts: &mut Interrupts, inter: &mut Interrupts) {
-        if !inter.get_nmi_assert(){
+    fn check_nmi(&mut self, ppu: &mut Ppu, apu: &mut Apu, interrupts: &mut Interrupts) {
+        if !interrupts.get_nmi_assert(){
             return;
         }
-        inter.deassert_nmi();
+        interrupts.deassert_nmi();
         self.reg.p &= !BREAK;
-        self.push_pc(ppu, apu);
-        self.push_reg_status(ppu, apu);
+        self.push_pc(ppu, apu, interrupts);
+        self.push_reg_status(ppu, apu, interrupts);
         self.reg.p |= INTERRUPT;
-        self.reg.pc = self.wread(ppu, apu, 0xFFFA);
+        self.reg.pc = self.wread(ppu, apu, interrupts, 0xFFFA);
     }
-    fn check_irq(&mut self, ppu: &mut Ppu, apu: &mut Apu, interrupts: &mut Interrupts, inter: &mut Interrupts) {
-        if !inter.get_irq_assert() {
+    fn check_irq(&mut self, ppu: &mut Ppu, apu: &mut Apu, interrupts: &mut Interrupts) {
+        if !interrupts.get_irq_assert() {
             return;
         }
         if self.reg.p & INTERRUPT > 0 {
             return;
         }
-        inter.deassert_irq();
+        interrupts.deassert_irq();
         self.reg.p &= !BREAK;
-        self.push_pc(ppu, apu);
-        self.push_reg_status(ppu, apu);
+        self.push_pc(ppu, apu, interrupts);
+        self.push_reg_status(ppu, apu, interrupts);
         self.reg.p |= INTERRUPT;
-        self.reg.pc = self.wread(ppu, apu, 0xFFFE);
+        self.reg.pc = self.wread(ppu, apu, interrupts, 0xFFFE);
     }
     fn show_op(&mut self, pc: u16, fop: &FetchedOp) {
         let i: usize = self.index as usize;
@@ -963,14 +968,15 @@ impl<'a> Cpu<'a> {
             }
         }
     }
-    pub fn run(&mut self, ppu: &mut Ppu, apu: &mut Apu, interrupts: &mut Interrupts, inter: &mut Interrupts) -> u64{
-        self.check_nmi(ppu, apu, inter);
-        self.check_irq(ppu, apu, inter);
+    pub fn run(&mut self, ppu: &mut Ppu, apu: &mut Apu, interrupts: &mut Interrupts) -> u64{
+        self.check_nmi(ppu, apu, interrupts);
+        self.check_irq(ppu, apu, interrupts);
         let pc = self.reg.pc;
-        let mut fetched_op: FetchedOp = self.fetch_op(ppu, apu);
+        let mut fetched_op: FetchedOp = 
+            self.fetch_op(ppu, apu, interrupts);
         // self.show_op(pc, &fetched_op);
         // self.nestest(pc, &fetched_op);
-        self.exec(ppu, apu, &mut fetched_op);
+        self.exec(ppu, apu, interrupts, &mut fetched_op);
         let cycle: u64 = 
             (fetched_op.op.cycle + fetched_op.add_cycle) as u64 +
             if self.has_branched {1} else {0};
