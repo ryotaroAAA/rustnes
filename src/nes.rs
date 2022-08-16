@@ -39,8 +39,8 @@ pub fn run(cassette_path: &str, is_test: bool) {
 
     cpu.reset(&mut ppu, &mut apu, &mut interrupts);
 
-    let mut start = Instant::now();
-    let mut end = start.elapsed();
+    // let mut start = Instant::now();
+    // let mut end = start.elapsed();
     loop {
         let status: GameStatus =
             game.check_key(&mut cpu).unwrap();

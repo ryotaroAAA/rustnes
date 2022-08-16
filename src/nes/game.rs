@@ -13,7 +13,7 @@ use sdl2::keyboard::Keycode;
 use sdl2::gfx::framerate::FPSManager;
 
 pub const SCALE: u32 = 3;
-pub const FPS: u32 = 120;
+pub const FPS: u32 = 60;
 pub const PAD_DELAY: usize = 10;
 pub const PAD_INTERVAL: usize = 10;
 
@@ -68,35 +68,51 @@ impl Game {
                 } => return Ok(GameStatus::Exit),
                 Event::KeyDown {keycode: Option::Some(Keycode::A), ..} => {
                     cpu.keypad1.a = true;
-                    cpu.keypad1.wait = true;
+                },
+                Event::KeyUp {keycode: Option::Some(Keycode::A), ..} => {
+                    cpu.keypad1.a = false;
                 },
                 Event::KeyDown {keycode: Option::Some(Keycode::S), ..} => {
                     cpu.keypad1.b = true;
-                    cpu.keypad1.wait = true;
+                },
+                Event::KeyUp {keycode: Option::Some(Keycode::S), ..} => {
+                    cpu.keypad1.b = false;
                 },
                 Event::KeyDown {keycode: Option::Some(Keycode::D), ..} => {
                     cpu.keypad1.start = true;
-                    cpu.keypad1.wait = true;
+                },
+                Event::KeyUp {keycode: Option::Some(Keycode::D), ..} => {
+                    cpu.keypad1.start = false;
                 },
                 Event::KeyDown {keycode: Option::Some(Keycode::F), ..} => {
                     cpu.keypad1.select = true;
-                    cpu.keypad1.wait = true;
+                },
+                Event::KeyUp {keycode: Option::Some(Keycode::F), ..} => {
+                    cpu.keypad1.select = false;
                 },
                 Event::KeyDown {keycode: Option::Some(Keycode::Up), ..} => {
                     cpu.keypad1.up = true;
-                    cpu.keypad1.wait = true;
+                },
+                Event::KeyUp {keycode: Option::Some(Keycode::Up), ..} => {
+                    cpu.keypad1.up = false;
                 },
                 Event::KeyDown {keycode: Option::Some(Keycode::Down), ..} => {
                     cpu.keypad1.down = true;
-                    cpu.keypad1.wait = true;
+                },
+                Event::KeyUp {keycode: Option::Some(Keycode::Down), ..} => {
+                    cpu.keypad1.down = false;
                 },
                 Event::KeyDown {keycode: Option::Some(Keycode::Left), ..} => {
                     cpu.keypad1.left = true;
-                    cpu.keypad1.wait = true;
+                },
+                Event::KeyUp {keycode: Option::Some(Keycode::Left), ..} => {
+                    cpu.keypad1.left = false;
                 },
                 Event::KeyDown {keycode: Option::Some(Keycode::Right), ..} => {
                     cpu.keypad1.right = true;
-                    cpu.keypad1.wait = true;
+                },
+                Event::KeyUp {keycode: Option::Some(Keycode::Right), ..} => {
+                    cpu.keypad1.right = false;
                 },
                 _ => {}
             }

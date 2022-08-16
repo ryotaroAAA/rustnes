@@ -51,20 +51,6 @@ impl KeyPadRegister {
             wait: false,
         }
     }
-    pub fn reset(&mut self) {
-        if self.wait {
-            self.wait = false;
-        } else {
-            self.a = false;
-            self.b = false;
-            self.start = false;
-            self.select = false;
-            self.up = false;
-            self.down = false;
-            self.left = false;
-            self.right = false;
-        }
-    }
     pub fn read(&mut self) -> u8 {
         let mut pad_val: u8 = 0;
         match self.addr {
@@ -79,16 +65,12 @@ impl KeyPadRegister {
             _ => (),
         }
         self.addr += 1;
-        // if pad_val > 0 {
-        //     println!("{}", pad_val);
-        // }
         pad_val
     }
     pub fn write(&mut self, data: u8) {
         if self.io_reg == 0 && data & 0x01 == 1 {
             self.io_reg = 1;
         } else if self.io_reg == 1 && data & 0x01 == 0 {
-            self.reset();
             self.addr = 0;
             self.io_reg = 0;
         }
