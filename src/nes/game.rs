@@ -9,9 +9,7 @@ use sdl2::rect::Rect;
 use sdl2::video::*;
 use sdl2::pixels::Color;
 use sdl2::event::Event;
-use sdl2::event::EventType::KeyDown;
 use sdl2::keyboard::Keycode;
-use sdl2::keyboard::Scancode;
 use sdl2::gfx::framerate::FPSManager;
 
 pub const SCALE: u32 = 3;
@@ -47,7 +45,7 @@ impl Game {
             .build()
             .map_err(|e| e.to_string())?;
         let mut fps_manager = FPSManager::new();
-        fps_manager.set_framerate(FPS);
+        _ = fps_manager.set_framerate(FPS);
 
         canvas.set_draw_color(Color::RGB(0, 0, 0));
         canvas.clear();
@@ -68,35 +66,35 @@ impl Game {
                 Event::Quit { .. } | Event::KeyDown {
                     keycode: Option::Some(Keycode::Escape), ..
                 } => return Ok(GameStatus::Exit),
-                Event::KeyDown {keycode: Option::Some(Keycode::A), repeat: false, ..} => {
+                Event::KeyDown {keycode: Option::Some(Keycode::A), repeat: true, ..} => {
                     cpu.keypad1.a = true;
                     cpu.keypad1.wait = true;
                 },
-                Event::KeyDown {keycode: Option::Some(Keycode::S), repeat: false,  ..} => {
+                Event::KeyDown {keycode: Option::Some(Keycode::S), repeat: true,  ..} => {
                     cpu.keypad1.b = true;
                     cpu.keypad1.wait = true;
                 },
-                Event::KeyDown {keycode: Option::Some(Keycode::D), repeat: false,  ..} => {
+                Event::KeyDown {keycode: Option::Some(Keycode::D), repeat: true,  ..} => {
                     cpu.keypad1.start = true;
                     cpu.keypad1.wait = true;
                 },
-                Event::KeyDown {keycode: Option::Some(Keycode::F), repeat: false,  ..} => {
+                Event::KeyDown {keycode: Option::Some(Keycode::F), repeat: true,  ..} => {
                     cpu.keypad1.select = true;
                     cpu.keypad1.wait = true;
                 },
-                Event::KeyDown {keycode: Option::Some(Keycode::Up), repeat: false, ..} => {
+                Event::KeyDown {keycode: Option::Some(Keycode::Up), repeat: true, ..} => {
                     cpu.keypad1.up = true;
                     cpu.keypad1.wait = true;
                 },
-                Event::KeyDown {keycode: Option::Some(Keycode::Down), repeat: false,  ..} => {
+                Event::KeyDown {keycode: Option::Some(Keycode::Down), repeat: true,  ..} => {
                     cpu.keypad1.down = true;
                     cpu.keypad1.wait = true;
                 },
-                Event::KeyDown {keycode: Option::Some(Keycode::Left), repeat: false,  ..} => {
+                Event::KeyDown {keycode: Option::Some(Keycode::Left), repeat: true,  ..} => {
                     cpu.keypad1.left = true;
                     cpu.keypad1.wait = true;
                 },
-                Event::KeyDown {keycode: Option::Some(Keycode::Right), repeat: false,  ..} => {
+                Event::KeyDown {keycode: Option::Some(Keycode::Right), repeat: true,  ..} => {
                     cpu.keypad1.right = true;
                     cpu.keypad1.wait = true;
                 },
