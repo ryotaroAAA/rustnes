@@ -42,8 +42,8 @@ impl Render {
         let tile_x: u8 = x / 8;
         let tile_y: u8 = y / 8;
         // let index: u8 = tile_y * 32 + tile_x;
-        image.background[tile_y as usize][tile_x as usize]
-            .sprite.data[y as usize][x as usize] > 0
+        (image.background[tile_y as usize][tile_x as usize]
+            .sprite.data[(y % 8) as usize][(x % 8) as usize] % 4) > 0
     }
 
     fn render_background(&mut self, image: &Image) {
@@ -59,35 +59,21 @@ impl Render {
     fn render_tile(&mut self, image: &Image, sprite_x: u8, sprite_y: u8, tile_x: u8, tile_y: u8) {
         let tile:&Tile = &image
             .background[sprite_x as usize][sprite_y as usize];
-        // if tile.sprite_id > 0 {
-        //     dbg!();
-        //     println!("{}", tile.sprite_id);
-        //     println!("{:?}", tile);
-        //     for a in &tile.sprite.data {
-        //         for b in a.iter(){
-        //             print!("{:?}", b);
-        //         }
-        //         print!("\n");
-        //     }
-        // }
+        if tile.sprite_id > 0 {
+            for a in &tile.sprite.data {
+                for b in a.iter(){
+                    print!("{:?}", b);
+                }
+                print!("\n");
+            }
+        }
         let palette_id: u16 = tile.palette_id;
-        // let data = tile.sprite.data;
         for i in 0..8 {
             for j in 0..8 {
-                let id: u16 = (palette_id * 4 +
-                    tile.sprite.data[i as usize][j as usize] as u16);
-                // if id > 0 {
-                //     dbg!(id, palette_id, i, j);
-                // }
                 let color_id: u8 = image.palette[(palette_id * 4 +
                     tile.sprite.data[i as usize][j as usize] as u16) as usize];
-                let x: u8 = (tile_x + j as u8 - tile.scroll_x);
+                let x: u8 = tile_x + j as u8 - tile.scroll_x;
                 let y: u8 = (tile_y + i as u8 - tile.scroll_y) % V_SIZE as u8;
-                if tile.sprite_id > 0 {
-                    // println!("{} {} {} {} {} {}",
-                    // x, y, palette_id, color_id,
-                    // tile.sprite.data[i as usize][j as usize], id);
-                }
                 self.data[y as usize % V_SIZE][x as usize % H_SIZE] =
                     COLORS[color_id as usize];
             }
@@ -101,11 +87,14 @@ impl Render {
             let is_horizontal_reverse = sprite.attr & 0x40 > 0;
             let is_low_priority = sprite.attr & 0x20 > 0;
             let palette_id = sprite.attr & 0x03;
+            // if sprite.attr > 0 {
+            //     println!("{:?}", sprite);
+            // }
 
             for i in 0..8 {
                 for j in 0..8 {
-                    let x = sprite.x + if is_horizontal_reverse {7-j} else {j};
-                    let y = sprite.y + if is_horizontal_reverse {7-i} else {i};
+                    let x = (sprite.x + if is_horizontal_reverse {7-j} else {j}) & 0xFF;
+                    let y = (sprite.y + if is_vertical_reverse {7-i} else {i}) & 0xFF;
                     if is_low_priority && self.should_pixel_hide(image, x, y) {
                         continue;
                     }

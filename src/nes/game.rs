@@ -66,35 +66,35 @@ impl Game {
                 Event::Quit { .. } | Event::KeyDown {
                     keycode: Option::Some(Keycode::Escape), ..
                 } => return Ok(GameStatus::Exit),
-                Event::KeyDown {keycode: Option::Some(Keycode::A), repeat: true, ..} => {
+                Event::KeyDown {keycode: Option::Some(Keycode::A), ..} => {
                     cpu.keypad1.a = true;
                     cpu.keypad1.wait = true;
                 },
-                Event::KeyDown {keycode: Option::Some(Keycode::S), repeat: true,  ..} => {
+                Event::KeyDown {keycode: Option::Some(Keycode::S), ..} => {
                     cpu.keypad1.b = true;
                     cpu.keypad1.wait = true;
                 },
-                Event::KeyDown {keycode: Option::Some(Keycode::D), repeat: true,  ..} => {
+                Event::KeyDown {keycode: Option::Some(Keycode::D), ..} => {
                     cpu.keypad1.start = true;
                     cpu.keypad1.wait = true;
                 },
-                Event::KeyDown {keycode: Option::Some(Keycode::F), repeat: true,  ..} => {
+                Event::KeyDown {keycode: Option::Some(Keycode::F), ..} => {
                     cpu.keypad1.select = true;
                     cpu.keypad1.wait = true;
                 },
-                Event::KeyDown {keycode: Option::Some(Keycode::Up), repeat: true, ..} => {
+                Event::KeyDown {keycode: Option::Some(Keycode::Up), ..} => {
                     cpu.keypad1.up = true;
                     cpu.keypad1.wait = true;
                 },
-                Event::KeyDown {keycode: Option::Some(Keycode::Down), repeat: true,  ..} => {
+                Event::KeyDown {keycode: Option::Some(Keycode::Down), ..} => {
                     cpu.keypad1.down = true;
                     cpu.keypad1.wait = true;
                 },
-                Event::KeyDown {keycode: Option::Some(Keycode::Left), repeat: true,  ..} => {
+                Event::KeyDown {keycode: Option::Some(Keycode::Left), ..} => {
                     cpu.keypad1.left = true;
                     cpu.keypad1.wait = true;
                 },
-                Event::KeyDown {keycode: Option::Some(Keycode::Right), repeat: true,  ..} => {
+                Event::KeyDown {keycode: Option::Some(Keycode::Right), ..} => {
                     cpu.keypad1.right = true;
                     cpu.keypad1.wait = true;
                 },
@@ -125,7 +125,7 @@ impl Game {
         }
         self.canvas.present();
         self.fps_manager.delay();
-        dbg!(self.fps_manager.get_framerate());
+        // dbg!(self.fps_manager.get_framerate());
         
         Ok(GameStatus::Ok)
     }

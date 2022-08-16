@@ -2,7 +2,6 @@
 #![allow(unused_variables)]
 #![allow(unused_variables)]
 
-use std::cmp;
 use std::process;
 
 use super::Apu;
@@ -212,7 +211,11 @@ impl<'a> Cpu<'a> {
         // println!(" read {:#X}", addr);
         match addr {
             0x0000 ..= 0x1FFF => self.wram.read(addr),
-            0x2000 ..= 0x3FFF => ppu.read((addr - 0x2000) % 8), // ppu read
+            0x2000 ..= 0x3FFF => {
+                // println!(" read {:#X}", addr);
+                ppu.read(addr - 0x2000) // ppu read
+            },
+                // 0x2000 ..= 0x3FFF => ppu.read((addr - 0x2000) % 8), // ppu read
             0x4015 => apu.read(interrupts, addr), // apu
             0x4016 => self.keypad1.read(), // keypad 1p
             0x4017 => self.keypad2.read(), // keypad 1p
@@ -235,7 +238,7 @@ impl<'a> Cpu<'a> {
             0x0000 ..= 0x1FFF => self.wram.write(addr, data),
             0x2000 ..= 0x2007 => ppu.write(addr - 0x2000, data), // ppu write
             0x4014 => {
-                let ram_addr_s: u16 = (data * SPRITE_RAM_SIZE as u8) as u16;
+                let ram_addr_s: u16 = (data as u16 * SPRITE_RAM_SIZE as u16) as u16;
                 ppu.write_sprite_ram_addr(0);
                 for i in 0..SPRITE_RAM_SIZE {
                     ppu.write_sprite_ram_data(self.wram.read(ram_addr_s + i as u16));

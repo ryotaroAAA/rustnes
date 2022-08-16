@@ -6,6 +6,7 @@ use crate::nes::VRAM_SIZE;
 use super::Cassette;
 use super::Interrupts;
 use super::Ram;
+use super::interrupts;
 
 /*
     [Control Register1 0x2000]
@@ -136,10 +137,15 @@ impl Palette {
     fn read(&self) -> [u8; 32]{
         let mut palette: [u8; 32] = [0u8; PALETTE_SIZE];
         for i in 0..PALETTE_SIZE {
-            palette[i] = if self.is_sprite_mirror(i as u16) && 
-                    self.is_background_mirror(i as u16) {
+            palette[i] = if self.is_sprite_mirror(i as u16) {
+                // println!("is mirror {}", i);
                 self.ram.read(i as u16 - 0x10)
-            } else {
+            }
+            // else if self.is_background_mirror(i as u16) {
+            //     println!("is mirror {}", i);
+            //     self.ram.read(i as u16 - 0x10)
+            // }
+            else {
                 self.ram.read(i as u16)
             };
         }
@@ -151,9 +157,9 @@ impl Palette {
     }
     fn is_background_mirror(&self, addr: u16) -> bool{
         match addr {
-            0x00 => true,
             0x04 => true,
             0x08 => true,
+            0x0c => true,
             _ => false
         }
     }
@@ -301,13 +307,15 @@ impl<'a> Ppu<'a> {
     fn get_sprite_id(&mut self, x: u8, y: u8, offset: u16) -> u8{
         let tile_num: u16 = y as u16 * 32 + x as u16;
         let sprite_addr: u16 = tile_num + offset;
-        self.vram.data[sprite_addr as usize]
+        self.vram.read(sprite_addr)
     }
     fn get_attribute(&mut self, x: u8, y: u8, offset: u16) -> u8{
-        let addr: u16 = x as u16 / 4 + (y as u16/ 4) * 8 + 0x03C0 + offset;
+        let addr: u16 = x as u16 / 4 +
+            (y as u16/ 4) * 8 +
+            0x03C0 + offset;
         // TODO
         // self.vram->read(self.mirror_down_sprite_addr(addr))
-        self.vram.data[addr as usize]
+        self.vram.read(addr)
     }
     fn get_palette(&mut self) {
         self.image.palette = self.palette.read();
@@ -325,9 +333,9 @@ impl<'a> Ppu<'a> {
             // name table, attribute table, pallette
             let addr = self.calc_vram_addr();
             self.vram_addr += self.get_vram_offset() as u16;
-            // dprint("addr %p %d", addr, buf)
             if addr >= 0x3F00 {
                 // palette
+                println!(" XXX {} {}", addr, self.vram_addr);
                 return self.vram.read(addr);
             }
         } else {
@@ -335,7 +343,7 @@ impl<'a> Ppu<'a> {
             self.vram_buf = self.char_ram.read(self.vram_addr) as u16;
             self.vram_addr += self.get_vram_offset() as u16;
         }
-        return self.vram_buf as u8;
+        self.vram_buf as u8
     }
     pub fn read(&mut self, addr: u16) -> u8 {
         /*
@@ -347,6 +355,7 @@ impl<'a> Ppu<'a> {
         | 4-0  | invalid                                     |                                 
         |      | bit4 VRAM write flag [0: success, 1: fail]  |
         */
+        // println!(" ppu read {:#X}", addr);
         match addr {
             0x0002 => {
                 // PPUSTATUS
@@ -415,7 +424,7 @@ impl<'a> Ppu<'a> {
         self.vram_addr += self.get_vram_offset() as u16;
     }
     pub fn write(&mut self, addr: u16, data: u8) {
-        // println!("{} {}", addr, data);
+        // println!(" ppu write {:#X} {:#X}:{:08b}", addr, data, data);
         match addr {
             0x0000 => self.creg1 = data,
             0x0001 => self.creg2 = data,
@@ -475,23 +484,30 @@ impl<'a> Ppu<'a> {
         }
         // for a in &sprite.data{
         //     for b in a.iter(){
-        //         let val = if *b > 0 {1} else {0};
-        //         print!("{:?}", val);
+        //         let val = if *b > 0 {"#"} else {" "};
+        //         print!("{}", val);
         //     }
         //     print!("\n");
         // }
-        // sprite
+        // print!("\n");
+            // sprite
     }
     fn build_objects(&mut self) {
         // see https:#wiki.nesdev.com/w/index.php/PPU_OAM
         for i in 0..self.sprite_ram_addr/4 {
             let j: u16 = 4 * i as u16;
-            dbg!(i, j);
             let mut sprite: Sprite = Sprite::new();
             sprite.y = self.sprite_ram.read(j);
             let sprite_id: u16 = self.sprite_ram.read(j + 1) as u16;
             sprite.attr = self.sprite_ram.read(j + 2);
             sprite.x = self.sprite_ram.read(j + 3);
+
+            if sprite.x == 0  && 
+                    sprite.y == 0 &&
+                    sprite.attr == 0 &&
+                    sprite_id == 0 {
+                continue;           
+            }
             let sprite_table_offset: u16 = self.get_sprite_table_offset();
             self.build_sprite_data(sprite_id,
                 sprite_table_offset, &mut sprite);
@@ -562,7 +578,7 @@ impl<'a> Ppu<'a> {
         self.background_index += 1;
     }
     
-    pub fn run(&mut self, cycle: u64, inter: &mut Interrupts) -> bool{
+    pub fn run(&mut self, cycle: u64, interrupts: &mut Interrupts) -> bool{
         self.cycle += 3 * cycle;
         
         if self.line == 0 {
@@ -583,9 +599,9 @@ impl<'a> Ppu<'a> {
             
             if self.line == V_SIZE as u16 + 1 {
                 self.set_vblank();
-                inter.deassert_nmi();
+                interrupts.deassert_nmi();
                 if self.has_vblank_irq_enabled() {
-                    inter.assert_nmi();
+                    interrupts.assert_nmi();
                 }
             }
             if self.line == V_SIZE_WITH_VBLANK as u16 {
@@ -596,8 +612,7 @@ impl<'a> Ppu<'a> {
                 self.background_index = 0;
 
                 self.get_palette();
-                // self.interrupts.deassert_nmi();
-                // return self.image
+                interrupts.deassert_nmi();
                 return true;
             }
         }
