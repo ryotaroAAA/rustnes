@@ -13,7 +13,7 @@ use sdl2::keyboard::Keycode;
 use sdl2::gfx::framerate::FPSManager;
 
 pub const SCALE: u32 = 3;
-pub const FPS: u32 = 60;
+pub const FPS: u32 = 120;
 pub const PAD_DELAY: usize = 10;
 pub const PAD_INTERVAL: usize = 10;
 
