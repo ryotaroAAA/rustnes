@@ -26,13 +26,12 @@ impl Cassette {
 
         let mut buf = Vec::new();
         let size = f.read_to_end(&mut buf);
-    
+
         let temp = &buf[0..3].to_vec();
         let magic = str::from_utf8(temp).unwrap();
         if magic != "NES" {
             panic!("invalid rom file!");
         }
-        
         let prog_size: usize = (buf[4] as usize) * PROG_ROM_UNIT_SIZE;
         let char_size: usize = (buf[5] as usize) * CHAR_ROM_UNIT_SIZE;
         println!("prog rom size: {:#X}", prog_size);
@@ -51,9 +50,8 @@ impl Cassette {
         println!("is_horizontal_mirror: {:?}", is_horizontal_mirror);
         println!("mapper: {:?}", mapper);
 
-        println!("{:?}", &prog_rom[..10]);
-        println!("{:#X}, {:#X}, {:#X}", rom_size, prog_size, char_size);
-        
+        println!("{:?}", &buf[0..16]);
+
         Cassette {
             path: path.to_string(),
             rom_size: rom_size,

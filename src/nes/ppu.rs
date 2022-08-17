@@ -208,9 +208,14 @@ pub struct Ppu<'a> {
 
 impl<'a> Ppu<'a> {
     pub fn new(cas: &Cassette, vram: &'a mut Ram) -> Ppu<'a> {
-        let mut char_ram = Ram::new(cas.char_size);
-        for i in 0..cas.char_size {
-            char_ram.data[i] = cas.char_rom[i];
+        let mut char_ram;
+        if cas.char_size > 0 {
+            char_ram = Ram::new(cas.char_size);
+            for i in 0..cas.char_size {
+                char_ram.write(i as u16, cas.char_rom[i]);
+            }
+        } else {
+            char_ram = Ram::new(0x4000);
         }
         Ppu {
             cycle: 0,
@@ -363,7 +368,7 @@ impl<'a> Ppu<'a> {
             self.vram_addr += self.get_vram_offset() as u16;
             if addr >= 0x3F00 {
                 // palette
-                println!(" XXX {} {}", addr, self.vram_addr);
+                // println!(" XXX {} {}", addr, self.vram_addr);
                 return self.vram.read(addr);
             }
         } else {
@@ -447,6 +452,10 @@ impl<'a> Ppu<'a> {
             }
         } else {
             // pattern table from charactor rom
+            // if self.vram_addr as usize >= self.char_ram.data.len() {
+            //     return
+            // }
+            // println!("{} {}", self.vram_addr, data);
             self.char_ram.write(self.vram_addr, data);
         }
         self.vram_addr += self.get_vram_offset() as u16;
@@ -502,6 +511,9 @@ impl<'a> Ppu<'a> {
         
         for i in 0..16 {
             let addr: u16 = (sprite_id * 16 + i + offset) as u16;
+            if addr as usize >= self.char_ram.data.len() {
+                continue
+            }
             let ram: u8 = self.char_ram.read(addr);
 
             for j in 0..8 {
@@ -554,6 +566,9 @@ impl<'a> Ppu<'a> {
         }
         for i in 0..16 {
             let addr: u16 = (sprite_id * 16 + i + offset) as u16;
+            if addr as usize >= self.char_ram.data.len() {
+                continue
+            }
             let ram: u8 = self.char_ram.read(addr);
 
             for j in 0..8 {

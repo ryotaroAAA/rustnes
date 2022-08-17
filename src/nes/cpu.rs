@@ -223,7 +223,10 @@ impl<'a> Cpu<'a> {
                 let ram_addr_s: u16 = (data as u16 * SPRITE_RAM_SIZE as u16) as u16;
                 ppu.write_sprite_ram_addr(0);
                 for i in 0..SPRITE_RAM_SIZE {
-                    ppu.write_sprite_ram_data(self.wram.read(ram_addr_s + i as u16));
+                    // self.wram.read(ram_addr_s + i as u16)
+                    let addr_: u8 =
+                        self.read(ppu, apu, interrupts, ram_addr_s + i as u16);
+                    ppu.write_sprite_ram_data(addr_);
                 }
             }, // dma 
             0x4016 => {

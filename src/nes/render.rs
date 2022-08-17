@@ -39,16 +39,10 @@ impl Render {
     }
 
     fn should_pixel_hide(&self, image: &Image, x: u8, y: u8) -> bool{
-        let tile_x: u8 = x / 8;
-        let tile_y: u8 = y / 8;
-        // println!("{} {} {} {}", x, y, tile_x, tile_y);
-        // let index: u8 = tile_y * 32 + tile_x;
-        if tile_y > 30 {
-            false
-        } else {
-            (image.background[tile_y as usize][tile_x as usize]
-                .sprite.data[(y % 8) as usize][(x % 8) as usize] % 4) > 0
-        }
+        let tile_x: u8 = (x / 8) % H_SPRITE_NUM as u8;
+        let tile_y: u8 = (y / 8) % V_SPRITE_NUM as u8;
+        (image.background[tile_y as usize][tile_x as usize]
+            .sprite.data[(y % 8) as usize][(x % 8) as usize] % 4) > 0
     }
 
     fn render_background(&mut self, image: &Image) {
