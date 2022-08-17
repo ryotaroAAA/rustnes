@@ -1,4 +1,4 @@
-extern crate test;
+// extern crate test;
 
 pub mod apu;
 pub mod cassette;

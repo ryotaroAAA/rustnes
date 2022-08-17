@@ -307,7 +307,10 @@ impl<'a> Ppu<'a> {
     fn get_sprite_id(&mut self, x: u8, y: u8, offset: u16) -> u8{
         let tile_num: u16 = y as u16 * 32 + x as u16;
         let sprite_addr: u16 = tile_num + offset;
+        dbg!(sprite_addr);
+        println!("{:X} {:X} {:X} ", tile_num, offset, sprite_addr);
         self.vram.read(sprite_addr)
+        // self.vram.read(sprite_addr % VRAM_SIZE as u16)
     }
     fn get_attribute(&mut self, x: u8, y: u8, offset: u16) -> u8{
         let addr: u16 = x as u16 / 4 +
@@ -315,6 +318,7 @@ impl<'a> Ppu<'a> {
             0x03C0 + offset;
         // TODO
         // self.vram->read(self.mirror_down_sprite_addr(addr))
+        // self.vram.read(addr % VRAM_SIZE as u16)
         self.vram.read(addr)
     }
     fn get_palette(&mut self) {
