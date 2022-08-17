@@ -12,6 +12,8 @@ pub const NES_HSIZE: usize = 0x0010;
 pub struct Cassette {
     path: String,
     rom_size: u64,
+    pub is_horizontal_mirror: bool,
+    pub mapper: u8,
     pub prog_size: usize,
     pub char_size: usize,
     pub prog_rom: Vec<u8>,
@@ -33,6 +35,8 @@ impl Cassette {
         
         let prog_size: usize = (buf[4] as usize) * PROG_ROM_UNIT_SIZE;
         let char_size: usize = (buf[5] as usize) * CHAR_ROM_UNIT_SIZE;
+        println!("prog rom size: {:#X}", prog_size);
+        println!("char rom size: {:#X}", char_size);
         let prog_rom_s: usize = NES_HSIZE;
         let char_rom_s: usize = prog_rom_s + prog_size;
         let prog_rom: Vec<u8> = buf[prog_rom_s..(prog_rom_s + prog_size)].to_vec();
@@ -41,12 +45,20 @@ impl Cassette {
         let metadata = std::fs::metadata(path);
         let rom_size: u64 = metadata.unwrap().len();
 
+        let is_horizontal_mirror = (buf[6] & 0x01) != 0x01;
+        let mapper = ((buf[6] & 0xF0) >> 4) | buf[7] & 0xF0;
+
+        println!("is_horizontal_mirror: {:?}", is_horizontal_mirror);
+        println!("mapper: {:?}", mapper);
+
         println!("{:?}", &prog_rom[..10]);
         println!("{:#X}, {:#X}, {:#X}", rom_size, prog_size, char_size);
         
         Cassette {
             path: path.to_string(),
             rom_size: rom_size,
+            is_horizontal_mirror: is_horizontal_mirror,
+            mapper: mapper,
             prog_size: prog_size,
             char_size: char_size,
             prog_rom: prog_rom,

@@ -193,6 +193,7 @@ pub struct Ppu<'a> {
     sprite_ram_addr: u16,
     scroll_x: u8,
     scroll_y: u8,
+    is_horizontal_mirror: bool,
     is_horizontal_scroll: bool,
     is_lower_vram_addr: bool,
     creg1: u8,
@@ -221,6 +222,7 @@ impl<'a> Ppu<'a> {
             sprite_ram_addr: 0,
             scroll_x: 0,
             scroll_y: 0,
+            is_horizontal_mirror: cas.is_horizontal_mirror,
             is_horizontal_scroll: false,
             is_lower_vram_addr: false,
             creg1: 0,
@@ -290,25 +292,46 @@ impl<'a> Ppu<'a> {
     }
 
     fn get_scroll_tile_x(&mut self) -> u8 {
-        self.scroll_x +
-            (((self.get_name_table_id() % 2) as u16 * 256) / 8) as u8
+        (self.scroll_x as u16 +
+            (((self.get_name_table_id() % 2) as u16 * H_SIZE as u16) / 8)) as u8
     }
     fn get_scroll_tile_y(&mut self) -> u8 { 
-        self.scroll_y +
-            (((self.get_name_table_id() / 2) as u16 * 240) / 8) as u8
+        (self.scroll_y as u16 +
+            (((self.get_name_table_id() / 2) as u16 * V_SIZE as u16) / 8)) as u8
     }
     fn get_tile_y(&mut self) -> u8 {
-        (self.line / 8) as u8 + self.get_scroll_tile_y() - 1
+        ((self.line / 8) as u16 + self.get_scroll_tile_y() as u16 - 1) as u8
     }
     fn get_block_id(&mut self, x: u8, y: u8) -> u8{
         ((x % 4) / 2 + (y % 4) / 2) * 2
     }
+    fn get_vram_addr(&mut self, sprite_addr: u16) -> u16 {
+        if self.is_horizontal_mirror {
+            match sprite_addr {
+                0x0000..=0x03FF => sprite_addr,
+                0x0400..=0x07FF => sprite_addr - 0x0400,
+                0x0800..=0x1BFF => sprite_addr - 0x0400,
+                0x1C00..=0x1FFF => sprite_addr - 0x0800,
+                _ => panic!("invalid sprite_addr {}", sprite_addr),
+            }
+        } else {
+            match sprite_addr {
+                0x0000..=0x03FF => sprite_addr,
+                0x0400..=0x07FF => sprite_addr,
+                0x0800..=0x1BFF => sprite_addr - 0x0800,
+                0x1C00..=0x1FFF => sprite_addr - 0x0800,
+                _ => panic!("invalid sprite_addr {}", sprite_addr),
+            }
+        }
+    }
     // read from name_table
     fn get_sprite_id(&mut self, x: u8, y: u8, offset: u16) -> u8{
         let tile_num: u16 = y as u16 * 32 + x as u16;
-        let sprite_addr: u16 = tile_num + offset;
-        dbg!(sprite_addr);
-        println!("{:X} {:X} {:X} ", tile_num, offset, sprite_addr);
+        let sprite_addr: u16 =
+            self.get_vram_addr(tile_num + offset);
+        
+        // dbg!(sprite_addr);
+        // println!("{:X} {:X} {:X} ", tile_num, offset, sprite_addr);
         self.vram.read(sprite_addr)
         // self.vram.read(sprite_addr % VRAM_SIZE as u16)
     }
@@ -316,10 +339,11 @@ impl<'a> Ppu<'a> {
         let addr: u16 = x as u16 / 4 +
             (y as u16/ 4) * 8 +
             0x03C0 + offset;
+        let sprite_addr: u16 = self.get_vram_addr(addr);
         // TODO
         // self.vram->read(self.mirror_down_sprite_addr(addr))
         // self.vram.read(addr % VRAM_SIZE as u16)
-        self.vram.read(addr)
+        self.vram.read(sprite_addr)
     }
     fn get_palette(&mut self) {
         self.image.palette = self.palette.read();
