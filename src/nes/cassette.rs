@@ -1,5 +1,6 @@
 use std::fs::File;
 use std::io::prelude::*;
+use std::str;
 
 pub const PROG_ROM_MAX_SIZE: usize = 0x8000;
 pub const CHAR_ROM_MAX_SIZE: usize = 0x2000;
@@ -24,6 +25,12 @@ impl Cassette {
         let mut buf = Vec::new();
         let size = f.read_to_end(&mut buf);
     
+        let temp = &buf[0..3].to_vec();
+        let magic = str::from_utf8(temp).unwrap();
+        if magic != "NES" {
+            panic!("invalid rom file!");
+        }
+        
         let prog_size: usize = (buf[4] as usize) * PROG_ROM_UNIT_SIZE;
         let char_size: usize = (buf[5] as usize) * CHAR_ROM_UNIT_SIZE;
         let prog_rom_s: usize = NES_HSIZE;
