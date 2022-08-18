@@ -215,6 +215,7 @@ impl<'a> Ppu<'a> {
                 char_ram.write(i as u16, cas.char_rom[i]);
             }
         } else {
+            // todo: size?
             char_ram = Ram::new(0x4000);
         }
         Ppu {
@@ -289,11 +290,13 @@ impl<'a> Ppu<'a> {
         self.sreg &= 0x7F;
     }
     fn has_sprite_hit(&mut self) -> bool {
-        // main screen y
+        let x: u8 = self.sprite_ram.read(0x03);
         let y: u8 = self.sprite_ram.read(0x00);
-        y == self.line as u8 &&
-            self.get_is_background_enable() &&
-            self.get_is_sprite_enable()
+        let is_hit =
+            x <= self.cycle as u8 &&
+            y == self.line as u8 &&
+            self.get_is_sprite_enable();
+        is_hit
     }
 
     fn get_scroll_tile_x(&mut self) -> u8 {
@@ -379,17 +382,17 @@ impl<'a> Ppu<'a> {
         self.vram_buf as u8
     }
     pub fn read(&mut self, addr: u16) -> u8 {
-        /*
-        | bit  | description                                 |
-        +------+---------------------------------------------+
-        | 7    | 1: VBlank clear by reading this register    |
-        | 6    | 1: sprite hit                               |
-        | 5    | 0: less than 8, 1: 9 or more                |
-        | 4-0  | invalid                                     |                                 
-        |      | bit4 VRAM write flag [0: success, 1: fail]  |
-        */
         // println!(" ppu read {:#X}", addr);
         match addr {
+            /*
+            | bit  | description                                 |
+            +------+---------------------------------------------+
+            | 7    | 1: VBlank clear by reading this register    |
+            | 6    | 1: sprite hit                               |
+            | 5    | 0: less than 8, 1: 9 or more                |
+            | 4-0  | invalid                                     |                                 
+            |      | bit4 VRAM write flag [0: success, 1: fail]  |
+            */
             0x0002 => {
                 // PPUSTATUS
                 let status: u8 = self.sreg;
@@ -624,18 +627,20 @@ impl<'a> Ppu<'a> {
     pub fn run(&mut self, cycle: u64, interrupts: &mut Interrupts) -> bool{
         self.cycle += 3 * cycle;
         
-        if self.line == 0 {
-            self.image.sprite.resize(0, Sprite::new());
-        }
         if self.cycle >= CYCLE_PER_LINE as u64 {
-            self.cycle -= CYCLE_PER_LINE as u64;
-            self.line += 1;
+            if self.line == 0 {
+                self.image.sprite.resize(0, Sprite::new());
+            }
 
             if self.has_sprite_hit() {
                 self.set_sprite_hit();
             }
+
+            self.cycle -= CYCLE_PER_LINE as u64;            
+            self.line += 1;
+
             if self.line <= V_SIZE as u16 &&
-                    !(self.line % TILE_SIZE as u16 > 0) &&
+                    self.scroll_y <= TILE_SIZE as u8 &&
                     (self.line % TILE_SIZE as u16 == 0) {
                 self.build_background();
             }
