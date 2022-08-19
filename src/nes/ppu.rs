@@ -421,11 +421,12 @@ impl<'a> Ppu<'a> {
     fn write_scroll_data(&mut self, data: u8) {
         if self.is_horizontal_scroll {
             self.is_horizontal_scroll = false;
-            self.scroll_x = data & 0xFF;
+            self.scroll_x = data;
         } else {
-            self.scroll_y = data & 0xFF;
+            self.scroll_y = data;
             self.is_horizontal_scroll = true;
         }
+        // dbg!(self.scroll_x, self.scroll_y);
     }
     // write by cpu
     fn write_vram_addr(&mut self, data: u8) {
@@ -597,29 +598,37 @@ impl<'a> Ppu<'a> {
         let block_id: u8 = self.get_block_id(x, y);
         let sprite_id: u16 = self.get_sprite_id(x, y, offset) as u16;
         let attr: u16 = self.get_attribute(x, y, offset) as u16;
-        let background_table_offset: u16 = self.get_background_table_offset();
-        // let mut background = &mut self.image.background;
-        self.image.background[i as usize][j as usize].sprite_id = sprite_id;
+        let background_table_offset: u16 =
+            self.get_background_table_offset();
+        self.image.background[i as usize][j as usize].sprite_id =
+            sprite_id;
         self.image.background[i as usize][j as usize].palette_id =
             (attr >> (block_id * 2)) as u16 & 0x03;
-        // self.build_sprite_data(sprite_id, background_table_offset,
-        //     &mut self.image.background[i as usize][j as usize].sprite);
         self.build_sprite_for_tile(sprite_id, background_table_offset, i, j);
-        self.image.background[i as usize][j as usize].scroll_x = self.scroll_x;
-        self.image.background[i as usize][j as usize].scroll_y = self.scroll_y;
+        self.image.background[i as usize][j as usize].scroll_x =
+            self.scroll_x;
+        self.image.background[i as usize][j as usize].scroll_y =
+            self.scroll_y;
     }
     // draw every 8 line
     fn build_background(&mut self) {
-        let mod_y: u8 = self.get_tile_y() % V_SPRITE_NUM as u8;
+        let tile_y: u8 = self.get_tile_y() % V_SPRITE_NUM as u8;
+        // let mod_y: u8 = self.scroll_y % V_SPRITE_NUM as u8;
         let table_id_offset: u8 =
             if (self.get_tile_y() / V_SPRITE_NUM as u8) % 2 > 0 {2} else {0};
 
         let i : u8 = self.background_index;
-        for x in 0..H_SPRITE_NUM as u8 {
-            let mod_x: u8 = x % H_SPRITE_NUM as u8;
-            let name_table_id: u8 = (x / H_SPRITE_NUM as u8) % 2 + table_id_offset;
-            let offset_addr_by_name_table: u16 = name_table_id as u16 * 0x0400;
-            self.build_tile(mod_x, mod_y, offset_addr_by_name_table, i, x);
+        for j in 0..H_SPRITE_NUM as u8 {
+            let tile_x: u8 = j % H_SPRITE_NUM as u8;
+            let name_table_id: u8 = 
+                (j / H_SPRITE_NUM as u8) % 2 + table_id_offset;
+            let offset_addr_by_name_table: u16 =
+                name_table_id as u16 * 0x0400;
+            self.build_tile(
+                tile_x, tile_y,
+                offset_addr_by_name_table,
+                i, j
+            );
         }
         self.background_index += 1;
     }
@@ -640,8 +649,8 @@ impl<'a> Ppu<'a> {
             self.line += 1;
 
             if self.line <= V_SIZE as u16 &&
-                    self.scroll_y <= TILE_SIZE as u8 &&
-                    (self.line % TILE_SIZE as u16 == 0) {
+                    self.scroll_y <= V_SIZE as u8 &&
+                    self.line % TILE_SIZE as u16 == 0 {
                 self.build_background();
             }
             
@@ -652,7 +661,7 @@ impl<'a> Ppu<'a> {
                     interrupts.assert_nmi();
                 }
             }
-            if self.line == V_SIZE_WITH_VBLANK as u16 {
+            if self.line >= V_SIZE_WITH_VBLANK as u16 {
                 self.build_objects();
                 self.clear_vblank();
                 self.clear_sprite_hit();
