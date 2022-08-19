@@ -22,7 +22,7 @@ use crate::nes::ram::Ram;
 use crate::nes::cassette::Cassette;
 
 const WRAM_SIZE: usize = 0x0800; // 2KiB
-const VRAM_SIZE: usize = 0x0800; // 2KiB
+const VRAM_SIZE: usize = 0x2000; // 2KiB?
 
 use std::time::{Duration, Instant};
 

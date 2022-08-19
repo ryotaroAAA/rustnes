@@ -71,7 +71,6 @@ pub struct Sprite {
     pub y: u8,
     pub attr: u8,
     pub data: Vec<Vec<u8>>,
-    // data: [[u8; H_SPRITE_NUM]; V_SPRITE_NUM],
 }
 
 impl Sprite {
@@ -298,17 +297,13 @@ impl<'a> Ppu<'a> {
             self.get_is_sprite_enable();
         is_hit
     }
-
     fn get_scroll_tile_x(&mut self) -> u8 {
-        (self.scroll_x as u16 +
-            (((self.get_name_table_id() % 2) as u16 * H_SIZE as u16) / 8)) as u8
+        ((self.scroll_x as u16 +
+            (self.get_name_table_id() % 2) as u16 * H_SIZE as u16) / 8) as u8
     }
     fn get_scroll_tile_y(&mut self) -> u8 { 
-        (self.scroll_y as u16 +
-            (((self.get_name_table_id() / 2) as u16 * V_SIZE as u16) / 8)) as u8
-    }
-    fn get_tile_y(&mut self) -> u8 {
-        ((self.line / 8) as u16 + self.get_scroll_tile_y() as u16 - 1) as u8
+        ((self.scroll_y as u16 + self.line +
+            (self.get_name_table_id() / 2) as u16 * V_SIZE as u16) / 8 - 1) as u8 
     }
     fn get_block_id(&mut self, x: u8, y: u8) -> u8{
         ((x % 4) / 2 + (y % 4) / 2) * 2
@@ -318,18 +313,19 @@ impl<'a> Ppu<'a> {
             match sprite_addr {
                 0x0000..=0x03FF => sprite_addr,
                 0x0400..=0x07FF => sprite_addr - 0x0400,
-                0x0800..=0x1BFF => sprite_addr - 0x0400,
-                0x1C00..=0x1FFF => sprite_addr - 0x0800,
+                0x0800..=0x1BFF => sprite_addr,
+                0x1C00..=0x1FFF => sprite_addr - 0x0400,
                 _ => panic!("invalid sprite_addr {}", sprite_addr),
             }
         } else {
-            match sprite_addr {
-                0x0000..=0x03FF => sprite_addr,
-                0x0400..=0x07FF => sprite_addr,
-                0x0800..=0x1BFF => sprite_addr - 0x0800,
-                0x1C00..=0x1FFF => sprite_addr - 0x0800,
-                _ => panic!("invalid sprite_addr {}", sprite_addr),
-            }
+            sprite_addr
+            // match sprite_addr {
+            //     0x0000..=0x03FF => sprite_addr,
+            //     0x0400..=0x07FF => sprite_addr,
+            //     0x0800..=0x1BFF => sprite_addr - 0x0800,
+            //     0x1C00..=0x1FFF => sprite_addr - 0x0800,
+            //     _ => panic!("invalid sprite_addr {}", sprite_addr),
+            // }
         }
     }
     // read from name_table
@@ -337,20 +333,13 @@ impl<'a> Ppu<'a> {
         let tile_num: u16 = y as u16 * 32 + x as u16;
         let sprite_addr: u16 =
             self.get_vram_addr(tile_num + offset);
-        
-        // dbg!(sprite_addr);
-        // println!("{:X} {:X} {:X} ", tile_num, offset, sprite_addr);
         self.vram.read(sprite_addr)
-        // self.vram.read(sprite_addr % VRAM_SIZE as u16)
     }
     fn get_attribute(&mut self, x: u8, y: u8, offset: u16) -> u8{
         let addr: u16 = x as u16 / 4 +
             (y as u16/ 4) * 8 +
             0x03C0 + offset;
         let sprite_addr: u16 = self.get_vram_addr(addr);
-        // TODO
-        // self.vram->read(self.mirror_down_sprite_addr(addr))
-        // self.vram.read(addr % VRAM_SIZE as u16)
         self.vram.read(sprite_addr)
     }
     fn get_palette(&mut self) {
@@ -371,7 +360,6 @@ impl<'a> Ppu<'a> {
             self.vram_addr += self.get_vram_offset() as u16;
             if addr >= 0x3F00 {
                 // palette
-                // println!(" XXX {} {}", addr, self.vram_addr);
                 return self.vram.read(addr);
             }
         } else {
@@ -426,7 +414,6 @@ impl<'a> Ppu<'a> {
             self.scroll_y = data;
             self.is_horizontal_scroll = true;
         }
-        // dbg!(self.scroll_x, self.scroll_y);
     }
     // write by cpu
     fn write_vram_addr(&mut self, data: u8) {
@@ -512,7 +499,6 @@ impl<'a> Ppu<'a> {
                 sprite.data[i][j] = 0;
             }
         }
-        
         for i in 0..16 {
             let addr: u16 = (sprite_id * 16 + i + offset) as u16;
             if addr as usize >= self.char_ram.data.len() {
@@ -550,7 +536,7 @@ impl<'a> Ppu<'a> {
                     sprite.y == 0 &&
                     sprite.attr == 0 &&
                     sprite_id == 0 {
-                continue;           
+                continue;
             }
             let sprite_table_offset: u16 = self.get_sprite_table_offset();
             self.build_sprite_data(sprite_id,
@@ -612,14 +598,12 @@ impl<'a> Ppu<'a> {
     }
     // draw every 8 line
     fn build_background(&mut self) {
-        let tile_y: u8 = self.get_tile_y() % V_SPRITE_NUM as u8;
-        // let mod_y: u8 = self.scroll_y % V_SPRITE_NUM as u8;
-        let table_id_offset: u8 =
-            if (self.get_tile_y() / V_SPRITE_NUM as u8) % 2 > 0 {2} else {0};
-
         let i : u8 = self.background_index;
+        let tile_y: u8 = self.get_scroll_tile_y() % V_SPRITE_NUM as u8;
+        let table_id_offset: u8 =
+            if (self.get_scroll_tile_y() / V_SPRITE_NUM as u8) % 2 > 0 {2} else {0};
         for j in 0..H_SPRITE_NUM as u8 {
-            let tile_x: u8 = j % H_SPRITE_NUM as u8;
+            let tile_x: u8 = (j + self.get_scroll_tile_x()) % H_SPRITE_NUM as u8;
             let name_table_id: u8 = 
                 (j / H_SPRITE_NUM as u8) % 2 + table_id_offset;
             let offset_addr_by_name_table: u16 =
@@ -630,9 +614,11 @@ impl<'a> Ppu<'a> {
                 i, j
             );
         }
+        // dbg!(i);
+        // println!("{} {} ", i, tile_y);
         self.background_index += 1;
     }
-    
+
     pub fn run(&mut self, cycle: u64, interrupts: &mut Interrupts) -> bool{
         self.cycle += 3 * cycle;
         
@@ -645,7 +631,7 @@ impl<'a> Ppu<'a> {
                 self.set_sprite_hit();
             }
 
-            self.cycle -= CYCLE_PER_LINE as u64;            
+            self.cycle -= CYCLE_PER_LINE as u64;
             self.line += 1;
 
             if self.line <= V_SIZE as u16 &&
@@ -653,8 +639,7 @@ impl<'a> Ppu<'a> {
                     self.line % TILE_SIZE as u16 == 0 {
                 self.build_background();
             }
-            
-            if self.line == V_SIZE as u16 + 1 {
+            if self.line == (V_SIZE as u16 + 1) {
                 self.set_vblank();
                 interrupts.deassert_nmi();
                 if self.has_vblank_irq_enabled() {
@@ -662,14 +647,14 @@ impl<'a> Ppu<'a> {
                 }
             }
             if self.line >= V_SIZE_WITH_VBLANK as u16 {
-                self.build_objects();
                 self.clear_vblank();
                 self.clear_sprite_hit();
+                interrupts.deassert_nmi();
                 self.line = 0;
                 self.background_index = 0;
-
+                
                 self.get_palette();
-                interrupts.deassert_nmi();
+                self.build_objects();
                 return true;
             }
         }

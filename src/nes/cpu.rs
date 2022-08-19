@@ -886,6 +886,7 @@ impl<'a> Cpu<'a> {
         if !interrupts.get_nmi_assert(){
             return;
         }
+        
         interrupts.deassert_nmi();
         self.reg.p &= !BREAK;
         self.push_pc(ppu, apu, interrupts);
