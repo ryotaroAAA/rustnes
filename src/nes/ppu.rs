@@ -59,7 +59,9 @@ pub const H_SIZE: usize = 256;
 pub const V_SIZE: usize = 240;
 pub const PALETTE_SIZE: usize = 0x20;
 pub const H_SPRITE_NUM: usize = 32;
+pub const H_BGTILE_NUM: usize = 33;
 pub const V_SPRITE_NUM: usize = 30;
+pub const V_BGTILE_NUM: usize = 31;
 pub const SPRITE_RAM_SIZE: usize = 0x0100;
 // const VRAM_SIZE: usize = 0x0800;
 const TILE_SIZE: usize = 8;
@@ -116,7 +118,7 @@ impl Image {
     pub fn new() -> Image {
         Image {
             sprite: Vec::new(),
-            background: vec![vec![Tile::new(); H_SPRITE_NUM]; V_SPRITE_NUM],
+            background: vec![vec![Tile::new(); H_BGTILE_NUM]; V_BGTILE_NUM],
             palette: [0; PALETTE_SIZE],
         }
     }
@@ -602,7 +604,8 @@ impl<'a> Ppu<'a> {
         let tile_y: u8 = self.get_scroll_tile_y() % V_SPRITE_NUM as u8;
         let table_id_offset: u8 =
             if (self.get_scroll_tile_y() / V_SPRITE_NUM as u8) % 2 > 0 {2} else {0};
-        for j in 0..H_SPRITE_NUM as u8 {
+        // dbg!(self.get_scroll_tile_y());
+        for j in 0..H_BGTILE_NUM as u8 {
             let tile_x: u8 = (j + self.get_scroll_tile_x()) % H_SPRITE_NUM as u8;
             let name_table_id: u8 = 
                 (j / H_SPRITE_NUM as u8) % 2 + table_id_offset;
@@ -634,8 +637,8 @@ impl<'a> Ppu<'a> {
             self.cycle -= CYCLE_PER_LINE as u64;
             self.line += 1;
 
-            if self.line <= V_SIZE as u16 &&
-                    self.scroll_y <= V_SIZE as u8 &&
+            if self.line <= (V_SIZE + 1) as u16 &&
+                    self.scroll_y <= (V_SIZE + 1) as u8 &&
                     self.line % TILE_SIZE as u16 == 0 {
                 self.build_background();
             }

@@ -48,24 +48,21 @@ impl Render {
     }
 
     fn render_background(&mut self, image: &Image) {
-        for i in 0..V_SPRITE_NUM + 1 {
-            for j in 0..H_SPRITE_NUM + 1 {
-                let x: u8 = j as u8 * 8;
-                let y: u8 = i as u8 % 240 * 8;
-                self.render_tile(
-                    image,
-                    i as u8 % 30,
-                    j as u8 % 32,
-                    x,
-                    y
-                );
+        for j in 0..V_SPRITE_NUM + 1 {
+            for i in 0..H_SPRITE_NUM + 1 {
+                self.render_tile(image, i as u8, j as u8);
             }
         }
     }
 
-    fn render_tile(&mut self, image: &Image, sprite_x: u8, sprite_y: u8, tile_x: u8, tile_y: u8) {
+    fn render_tile(
+        &mut self, 
+        image: &Image,
+        tile_x: u8,
+        tile_y: u8
+    ) {
         let tile:&Tile = &image
-            .background[sprite_x as usize][sprite_y as usize];
+            .background[tile_y as usize][tile_x as usize];
         // if tile.sprite_id > 0 {
         //     for a in &tile.sprite.data {
         //         for b in a.iter(){
@@ -80,12 +77,12 @@ impl Render {
         // println!("{} {} {} {}", tile.scroll_x, tile.scroll_y, off_x, off_y);
         for i in 0..8 {
             for j in 0..8 {
-                let x: i16 = tile_x as i16 + j as i16 - off_x;
-                let y: i16 = tile_y as i16 + i as i16 - off_y;
+                let x: i16 = 8 * tile_x as i16 + j as i16 - off_x;
+                let y: i16 = 8 * tile_y as i16 + i as i16 - off_y;
                 if 0 <= x && x < H_SIZE as i16 && 0 <= y && y < V_SIZE as i16 {
                     let color_id: u8 = image.palette[(palette_id * 4 +
                         tile.sprite.data[i as usize][j as usize] as u16) as usize];
-                    self.data[(y % 240) as usize][(x % 256) as usize] =
+                    self.data[((y as u8) % 240) as usize][(x % 256) as usize] =
                         COLORS[color_id as usize];
                 } else {
                     // println!("x:{} y:{} tile_x:{} tile_y:{} j:{} i:{} off_x:{} off_y:{} {} {} {}",
