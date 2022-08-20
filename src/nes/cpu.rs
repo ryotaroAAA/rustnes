@@ -77,6 +77,33 @@ impl KeyPadRegister {
 }
 
 #[derive(Debug)]
+pub struct Mapper {
+    mapper: u8,
+    bank: u8
+}
+
+impl Mapper {
+    pub fn new(mapper: u8, bank: u8) -> Mapper {
+        Mapper {
+            mapper: mapper,
+            bank: bank
+        }
+    }
+    pub fn get_mapper(&self) -> u8 {
+        self.mapper
+    }
+    pub fn set_bank(&mut self, bank: u8) {
+        self.bank = bank;
+    }
+    pub fn get_bank(&self) -> u8 {
+        self.bank
+    }
+    pub fn get_char_ram_addr(&self, addr: u16) -> u16 {
+        addr + (self.bank as u16) * 0x2000
+    }
+}
+
+#[derive(Debug)]
 pub struct Register {
     a: u8,
     x: u8,
@@ -124,6 +151,7 @@ pub struct Cpu<'a> {
     reg: Register,
     cas: &'a Cassette,
     wram: &'a mut Ram,
+    mapper: Mapper,
     pub keypad1: KeyPadRegister,
     pub keypad2: KeyPadRegister
 }
@@ -151,6 +179,7 @@ impl<'a> Cpu<'a> {
             reg: Register::new(),
             cas: cas,
             wram: wram,
+            mapper: Mapper::new(cas.mapper, 0),
             keypad1: KeyPadRegister::new(),
             keypad2: KeyPadRegister::new()
         }
@@ -236,7 +265,11 @@ impl<'a> Cpu<'a> {
                 apu.write(addr, data);
             }, // apu
             0x6000 ..= 0x7FFF => self.wram.write(addr - 0x8000, data),
-            _ => panic!("invalid addr {:#X}", addr)
+            0x8000 ..= 0xFFFF => {
+                println!("bank : {}", data);
+                self.mapper.set_bank(data);
+            },
+            _ => panic!("invalid addr {:#X}", addr),
         }
     }
     fn bfetch(&mut self, ppu: &mut Ppu, apu: &mut Apu, interrupts: &mut Interrupts, ) -> u8{

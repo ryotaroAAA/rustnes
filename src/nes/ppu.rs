@@ -403,7 +403,8 @@ impl<'a> Ppu<'a> {
                 // PPUDATA
                 return self.vram_read();
             },
-            _ => panic!("invalid addr {:#X}", addr)
+            _ => 0,
+            // _ => panic!("invalid addr {:#X}", addr)
         }
     }
     pub fn write_sprite_ram_addr(&mut self, data: u8) {

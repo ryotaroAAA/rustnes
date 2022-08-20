@@ -39,10 +39,10 @@ impl Render {
     }
 
     fn should_pixel_hide(&self, image: &Image, x: u8, y: u8) -> bool{
-        // let tile_x: u8 = (x / 8) % H_SPRITE_NUM as u8;
-        // let tile_y: u8 = (y / 8) % V_SPRITE_NUM as u8;
-        let tile_x: u8 = (x / 8);
-        let tile_y: u8 = (y / 8);
+        let tile_x: u8 = (x / 8) % H_SPRITE_NUM as u8;
+        let tile_y: u8 = (y / 8) % V_SPRITE_NUM as u8;
+        // let tile_x: u8 = (x / 8);
+        // let tile_y: u8 = (y / 8);
         (image.background[tile_y as usize][tile_x as usize]
             .sprite.data[(y % 8) as usize][(x % 8) as usize] % 4) > 0
     }
@@ -83,7 +83,7 @@ impl Render {
                     let color_id: u8 = image.palette[(palette_id * 4 +
                         tile.sprite.data[j as usize][i as usize] as u16) as usize];
                     self.data[((y as u8) % 240) as usize][(x % 256) as usize] =
-                        if j == 0 || i == 0 {0} else {COLORS[color_id as usize]};
+                        COLORS[color_id as usize];
                 }
                 // if tile_y == 30 && off_y > 0 {
                 // // if off_y > 0 {
