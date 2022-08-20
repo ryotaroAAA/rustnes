@@ -48,8 +48,8 @@ impl Render {
     }
 
     fn render_background(&mut self, image: &Image) {
-        for j in 0..V_SPRITE_NUM + 1 {
-            for i in 0..H_SPRITE_NUM + 1 {
+        for j in 0..V_SPRITE_NUM {
+            for i in 0..H_SPRITE_NUM {
                 self.render_tile(image, i as u8, j as u8);
             }
         }
@@ -61,11 +61,12 @@ impl Render {
         tile_x: u8,
         tile_y: u8
     ) {
+        // println!("{} {}", &image.background.len(), &image.background[0].len());
         let tile:&Tile = &image
             .background[tile_y as usize][tile_x as usize];
         // if tile.sprite_id > 0 {
         //     for a in &tile.sprite.data {
-        //         for b in a.iter(){
+        //         for b in a.iter() {
         //             print!("{:?}", b);
         //         }
         //         print!("\n");
@@ -74,20 +75,21 @@ impl Render {
         let palette_id: u16 = tile.palette_id;
         let off_x: i16 = (tile.scroll_x % 8) as i16;
         let off_y: i16 = (tile.scroll_y % 8) as i16;
-        // println!("{} {} {} {}", tile.scroll_x, tile.scroll_y, off_x, off_y);
-        for i in 0..8 {
-            for j in 0..8 {
-                let x: i16 = 8 * tile_x as i16 + j as i16 - off_x;
-                let y: i16 = 8 * tile_y as i16 + i as i16 - off_y;
+        for j in 0..8 {
+            for i in 0..8 {
+                let x: i16 = 8 * tile_x as i16 + i as i16 - off_x;
+                let y: i16 = 8 * tile_y as i16 + j as i16 - off_y;
                 if 0 <= x && x < H_SIZE as i16 && 0 <= y && y < V_SIZE as i16 {
                     let color_id: u8 = image.palette[(palette_id * 4 +
-                        tile.sprite.data[i as usize][j as usize] as u16) as usize];
+                        tile.sprite.data[j as usize][i as usize] as u16) as usize];
                     self.data[((y as u8) % 240) as usize][(x % 256) as usize] =
-                        COLORS[color_id as usize];
-                } else {
-                    // println!("x:{} y:{} tile_x:{} tile_y:{} j:{} i:{} off_x:{} off_y:{} {} {} {}",
-                    //     x, y, tile_x, tile_y, j, i, off_x, off_y, y as u8 % 240 , y as u8 % 224, y as u8);
+                        if j == 0 || i == 0 {0} else {COLORS[color_id as usize]};
                 }
+                // if tile_y == 30 && off_y > 0 {
+                // // if off_y > 0 {
+                //     println!("x:{} y:{} tile_x:{} tile_y:{} i:{} j:{} off_x:{} off_y:{} {} {} {}",
+                //         x, y, tile_x, tile_y, i, j, off_x, off_y, y as u8 % 240 , y as u8 % 224, y as u8);
+                // }
             }
         }
     }

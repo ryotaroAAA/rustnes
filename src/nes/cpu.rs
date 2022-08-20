@@ -19,7 +19,6 @@ const BREAK: u8 = 1 << 4;
 const RESERVED: u8 = 1 << 5;
 const OVERFLOW: u8 = 1 << 6;
 const NEGATIVE: u8 = 1 << 7;
-
 #[derive(Debug)]
 pub struct KeyPadRegister {
     pub a: bool,
@@ -194,7 +193,6 @@ impl<'a> Cpu<'a> {
         match addr {
             0x0000 ..= 0x1FFF => self.wram.read(addr),
             0x2000 ..= 0x3FFF => {
-                // println!(" read {:#X}", addr);
                 ppu.read(addr - 0x2000) // ppu read
             },
                 // 0x2000 ..= 0x3FFF => ppu.read((addr - 0x2000) % 8), // ppu read
@@ -228,6 +226,7 @@ impl<'a> Cpu<'a> {
                         self.read(ppu, apu, interrupts, ram_addr_s + i as u16);
                     ppu.write_sprite_ram_data(addr_);
                 }
+                // self.cycle += 514; // ?
             }, // dma 
             0x4016 => {
                 self.keypad1.write(data); // keypad 1p
@@ -911,6 +910,9 @@ impl<'a> Cpu<'a> {
     fn show_op(&mut self, pc: u16, fop: &FetchedOp) {
         let i: usize = self.index as usize;
         let op: OpInfo = fop.op;
+        if op.opcode.to_string() == "JMP" {
+            return;
+        }
         let fmt: String = format!("{:05} {:04X} {:3} {:4} {:04X} A:{:02X} X:{:02X} Y:{:02X} P:{:02X} SP:{:04X} {}",
             i + 1, pc, op.opcode.to_string(),
             op.mode.to_string(), fop.data,
