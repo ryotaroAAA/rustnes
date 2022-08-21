@@ -90,6 +90,7 @@ pub struct Tile {
     pub scroll_y: u8,
     pub sprite_id: u16,
     pub palette_id: u16,
+    pub is_background_enable: bool,
     pub sprite: Sprite,
 }
 
@@ -100,6 +101,7 @@ impl Tile {
             scroll_y: 0,
             sprite_id: 0,
             palette_id: 0,
+            is_background_enable: true,
             sprite: Sprite::new(),
         }
     }
@@ -109,6 +111,7 @@ impl Tile {
 pub struct Image {
     pub sprite: Vec<Sprite>,
     pub background: Vec<Vec<Tile>>,
+    pub dbg_bg: Vec<Vec<Tile>>,
     pub palette: [u8; PALETTE_SIZE],
 }
 
@@ -117,6 +120,7 @@ impl Image {
         Image {
             sprite: Vec::new(),
             background: vec![vec![Tile::new(); H_SPRITE_NUM]; V_SPRITE_NUM],
+            dbg_bg: vec![vec![Tile::new(); H_SPRITE_NUM*2]; V_SPRITE_NUM*2],
             palette: [0; PALETTE_SIZE],
         }
     }
@@ -139,20 +143,19 @@ impl Palette {
             palette[i] = if self.is_sprite_mirror(i as u16) {
                 // println!("is mirror {}", i);
                 self.ram.read(i as u16 - 0x10)
-            }
-            // else if self.is_background_mirror(i as u16) {
-            //     println!("is mirror {}", i);
-            //     self.ram.read(i as u16 - 0x10)
-            // }
-            else {
+            } else if self.is_background_mirror(i as u16) {
+                // println!("is mirror {}", i);
+                // self.ram.read(0x00)
+                self.ram.read(i as u16)
+            } else {
                 self.ram.read(i as u16)
             };
         }
         palette
     }
     fn write(&mut self, addr: u16, data: u8) {
-        let addr_: usize = self.get_palette_addr(addr) as usize;
-        self.ram.data[addr_] = data;
+        let addr_: u16 = self.get_palette_addr(addr);
+        self.ram.write(addr_, data);
     }
     fn is_background_mirror(&self, addr: u16) -> bool{
         match addr {
@@ -172,7 +175,7 @@ impl Palette {
         }
     }
     fn get_palette_addr(&self, addr: u16) -> u16 {
-        let mirror_downed: u16 = addr % 0x20;
+        let mirror_downed: u16 = (addr & 0xFF) % 0x20;
         if self.is_sprite_mirror(mirror_downed) {
             mirror_downed - 0x10
         } else {
@@ -202,7 +205,6 @@ pub struct Ppu<'a> {
     sprite_ram: Ram,
     char_ram: Ram,
     vram: &'a mut Ram,
-    pub image: Image,
 }
 
 impl<'a> Ppu<'a> {
@@ -237,7 +239,6 @@ impl<'a> Ppu<'a> {
             sprite_ram: Ram::new(SPRITE_RAM_SIZE),
             char_ram: char_ram,
             vram: vram,
-            image: Image::new(),
         }
     }
     // Control Register 1, PPU memory increment
@@ -309,45 +310,40 @@ impl<'a> Ppu<'a> {
         ((self.scroll_y as u16 + self.line +
             (self.get_name_table_id() / 2) as u16 * V_SIZE as u16) / 8 - 1) as u8 
     }
-    fn get_block_id(&mut self, x: u8, y: u8) -> u8{
-        ((x % 4) / 2 + (y % 4) / 2) * 2
+    fn get_block_id(&mut self, x: u16, y: u16) -> u8{
+        (((x % 4) / 2 + (y % 4) / 2) * 2) as u8
     }
     fn get_vram_addr(&mut self, sprite_addr: u16) -> u16 {
         if self.is_horizontal_mirror {
             match sprite_addr {
                 0x0000..=0x03FF => sprite_addr,
                 0x0400..=0x07FF => sprite_addr - 0x0400,
-                0x0800..=0x1BFF => sprite_addr,
-                0x1C00..=0x1FFF => sprite_addr - 0x0400,
+                0x0800..=0x0BFF => sprite_addr,
+                0x0C00..=0x0FFF => sprite_addr - 0x0400,
+                // _ => sprite_addr,
                 _ => panic!("invalid sprite_addr {}", sprite_addr),
             }
         } else {
             sprite_addr
-            // match sprite_addr {
-            //     0x0000..=0x03FF => sprite_addr,
-            //     0x0400..=0x07FF => sprite_addr,
-            //     0x0800..=0x1BFF => sprite_addr - 0x0800,
-            //     0x1C00..=0x1FFF => sprite_addr - 0x0800,
-            //     _ => panic!("invalid sprite_addr {}", sprite_addr),
-            // }
         }
     }
     // read from name_table
-    fn get_sprite_id(&mut self, x: u8, y: u8, offset: u16) -> u8{
+    fn get_sprite_id(&mut self, x: u16, y: u16, offset: u16) -> u8{
         let tile_num: u16 = y as u16 * 32 + x as u16;
         let sprite_addr: u16 =
             self.get_vram_addr(tile_num + offset);
         self.vram.read(sprite_addr)
     }
-    fn get_attribute(&mut self, x: u8, y: u8, offset: u16) -> u8{
+    fn get_attribute(&mut self, x: u16, y: u16, offset: u16) -> u8{
+        // println!("{} {} {}", x, y, offset);
         let addr: u16 = x as u16 / 4 +
             (y as u16/ 4) * 8 +
             0x03C0 + offset;
         let sprite_addr: u16 = self.get_vram_addr(addr);
         self.vram.read(sprite_addr)
     }
-    fn get_palette(&mut self) {
-        self.image.palette = self.palette.read();
+    fn get_palette(&mut self, image: &mut Image) {
+        image.palette = self.palette.read();
     }
     fn calc_vram_addr(&mut self) -> u16{
         if self.vram_addr >= 0x3000 && self.vram_addr < 0x3F00 {
@@ -368,7 +364,7 @@ impl<'a> Ppu<'a> {
             self.vram_addr += self.get_vram_offset() as u16;
             if addr >= 0x3F00 {
                 // palette
-                return self.vram.read(addr);
+                return self.vram.read(addr - 0x3F00);
             }
             self.vram_buf = self.vram.read(addr);
         } else {
@@ -448,7 +444,8 @@ impl<'a> Ppu<'a> {
                 self.palette.write(self.vram_addr - 0x3F00, data);
             } else {
                 // name table, attr table
-                let addr: u16 = self.calc_vram_addr() % VRAM_SIZE as u16;
+                let addr: u16 = self.calc_vram_addr();
+                // let addr: u16 = self.calc_vram_addr() % VRAM_SIZE as u16;
                 // dbg!(self.vram_addr, addr, data);
                 // println!(" XXX {:05X} {:05X}", addr, data);
                 self.vram.write(addr, data);
@@ -482,7 +479,7 @@ impl<'a> Ppu<'a> {
         }
     }
     
-    fn build_sprite_data(&self, sprite_id: u16, offset: u16, sprite: &mut Sprite) {
+    fn build_sprite_data(&self, is_tile: bool, sprite_id: u16, offset: u16, sprite: &mut Sprite) {
         /*
             Bit Planes                  Pixel Pattern (return value)
             [lower bit]
@@ -511,7 +508,7 @@ impl<'a> Ppu<'a> {
                 sprite.data[i][j] = 0;
             }
         }
-        let h = if self.is_large_sprite() {2} else {1};
+        let h = if self.is_large_sprite() && !is_tile {2} else {1};
         for k in 0..h {
             for i in 0..16 {
                 let addr: u16 = ((sprite_id + k) * 16 + i + offset) as u16;
@@ -537,7 +534,7 @@ impl<'a> Ppu<'a> {
         // print!(";\n");
             // sprite
     }
-    fn build_sprites(&mut self) {
+    fn build_sprites(&mut self, image: &mut Image) {
         // see https:#wiki.nesdev.com/w/index.php/PPU_OAM
         for i in 0..self.sprite_ram_addr/4 {
             let j: u16 = 4 * i as u16;
@@ -558,98 +555,132 @@ impl<'a> Ppu<'a> {
             } else {
                 (sprite_id, self.get_sprite_table_offset())
             };
-            
-            self.build_sprite_data(sprite_id,
-                offset, &mut sprite);
-            self.image.sprite.push(sprite);
+            self.build_sprite_data(
+                false,
+                sprite_id,
+                offset,
+                &mut sprite
+            );
+            image.sprite.push(sprite);
         }
-    }
-    fn build_sprite_for_tile(&mut self, sprite_id: u16, offset: u16, x: u8, y: u8) {
-        let background = &mut self.image.background;
-        // self.build_sprite_data(sprite_id, offset,
-        //     &mut background[i as usize][j as usize].sprite);
-        for i in 0..8 {
-            for j in 0..8 {
-                background[x as usize][y as usize]
-                    .sprite.data[i][j] = 0;
-            }
-        }
-        for i in 0..16 {
-            let addr: u16 = (sprite_id * 16 + i + offset) as u16;
-            if addr as usize >= self.char_ram.data.len() {
-                continue
-            }
-            let ram: u8 = self.char_ram.read(addr);
-
-            for j in 0..8 {
-                if ram & (0x80 >> j) > 0 {
-                    background[x as usize][y as usize].sprite.data[(i % 8) as usize][j] +=
-                        0x01 << (i/8);
-                }
-            }
-        }
-        // if sprite_id > 0 {
-        //     println!("{} x:{}, y:{}", sprite_id, x, y);
-        //     for a in &background[x as usize][y as usize].sprite.data {
-        //         for b in a.iter(){
-        //             // let val = if  == 1 {1}else {0};
-        //             print!("{:?}", *b);
-        //         }
-        //         print!("\n");
-        //     }
-        // }
     }
     // the element of background
-    fn build_tile(&mut self, x: u8, y: u8, offset: u16, i: u8, j: u8) {
-        let block_id: u8 = self.get_block_id(x, y);
-        let sprite_id: u16 = self.get_sprite_id(x, y, offset) as u16;
-        let attr: u16 = self.get_attribute(x, y, offset) as u16;
+    fn build_tile(&mut self, image: &mut Image, x: u8, y: u8, offset: u16, i: u8, j: u8) {
+        let block_id: u8 = self.get_block_id(x as u16, y as u16);
+        let sprite_id: u16 = self.get_sprite_id(x as u16, y as u16, offset) as u16;
+        let attr: u16 = self.get_attribute(x as u16, y as u16, offset) as u16;
+        let palette_id: u16 = (attr >> (block_id * 2)) as u16 & 0x03;
         let background_table_offset: u16 =
             self.get_background_table_offset();
-        self.image.background[i as usize][j as usize].sprite_id =
+
+        // let is_no_update =
+        //     image.background[i as usize][j as usize].sprite_id == sprite_id &&
+        //     image.background[i as usize][j as usize].palette_id == palette_id &&
+        //     image.background[i as usize][j as usize].scroll_x == self.scroll_x &&
+        //     image.background[i as usize][j as usize].scroll_y == self.scroll_y;
+
+        // if is_no_update {
+        //     // return;
+        // }
+        image.background[i as usize][j as usize].sprite_id =
             sprite_id;
-        self.image.background[i as usize][j as usize].palette_id =
-            (attr >> (block_id * 2)) as u16 & 0x03;
-        self.build_sprite_for_tile(sprite_id, background_table_offset, i, j);
-        self.image.background[i as usize][j as usize].scroll_x =
+        image.background[i as usize][j as usize].palette_id =
+            palette_id;
+        self.build_sprite_data(
+            true,
+            sprite_id,
+            background_table_offset,
+            &mut image.background[i as usize][j as usize].sprite
+        );
+        image.background[i as usize][j as usize].scroll_x =
             self.scroll_x;
-        self.image.background[i as usize][j as usize].scroll_y =
+        image.background[i as usize][j as usize].scroll_y =
             self.scroll_y;
+        image.background[i as usize][j as usize].is_background_enable =
+            self.get_is_background_enable();
     }
     // draw every 8 line
-    fn build_background(&mut self) {
+    fn build_background(&mut self, image: &mut Image) {
         let i : u8 = self.background_index;
         let tile_y: u8 = self.get_scroll_tile_y() % V_SPRITE_NUM as u8;
         let table_id_offset: u8 =
             if (self.get_scroll_tile_y() / V_SPRITE_NUM as u8) % 2 > 0 {2} else {0};
-        // dbg!(self.get_scroll_tile_y());
+        // dbg!(table_id_offset);
         for j in 0..H_SPRITE_NUM as u8 {
             let tile_x: u8 = (j + self.get_scroll_tile_x()) % H_SPRITE_NUM as u8;
             let name_table_id: u8 = 
                 (j / H_SPRITE_NUM as u8) % 2 + table_id_offset;
             let offset_addr_by_name_table: u16 =
                 name_table_id as u16 * 0x0400;
+            // dbg!(offset_addr_by_name_table);
             self.build_tile(
-                tile_x, tile_y,
+                image, tile_x, tile_y,
                 offset_addr_by_name_table,
                 i, j
             );
         }
-        // dbg!(i);
-        // println!("{} {} ", i, tile_y);
         self.background_index += 1;
     }
 
-    pub fn run(&mut self, cycle: u64, interrupts: &mut Interrupts) -> bool{
+    fn build_dbg_bg(&mut self, image: &mut Image) {
+        for i in 0..2*V_SPRITE_NUM {
+            for j in 0..2*H_SPRITE_NUM {
+                /* bg_id
+                    +--+--+
+                    | 0| 1|
+                    +--+--+
+                    | 2| 3|
+                    +--+--+
+                */
+                let bg_id: u16 =
+                    2 * ((i / V_SPRITE_NUM) % 2) as u16 +
+                    (j / H_SPRITE_NUM) as u16 % 2;
+                let offset: u16 = bg_id * 0x0400;
+                let block_id: u8 = self.get_block_id(
+                    j as u16 % H_SPRITE_NUM as u16,
+                    i as u16 % V_SPRITE_NUM as u16
+                );
+                let sprite_id: u16 = self.get_sprite_id(
+                    j as u16 % H_SPRITE_NUM as u16,
+                    i as u16 % V_SPRITE_NUM as u16,
+                    offset
+                ) as u16;
+                let attr: u8 = self.get_attribute(
+                    j as u16 % H_SPRITE_NUM as u16,
+                    i as u16 % V_SPRITE_NUM as u16,
+                    offset
+                );
+                let palette_id: u16 =
+                    ((attr as i16 >> (block_id * 2)) as i16 & 0x03) as u16;
+
+                // let is_no_update =
+                //     image.dbg_bg[i as usize][j as usize].sprite_id == sprite_id &&
+                //     image.dbg_bg[i as usize][j as usize].palette_id == palette_id;
+                // if is_no_update {
+                //     continue;
+                // }
+
+                let background_table_offset: u16 =
+                    self.get_background_table_offset();
+                self.build_sprite_data(
+                    true,
+                    sprite_id,
+                    background_table_offset,
+                    &mut image.dbg_bg[i as usize][j as usize].sprite
+                );
+            }   
+        }
+    }
+
+    pub fn run(&mut self, cycle: u64, image: &mut Image, interrupts: &mut Interrupts) -> bool{
         self.cycle += 3 * cycle;
 
         if self.cycle >= CYCLE_PER_LINE as u64 {
             if self.line == 0 {
-                self.image.sprite.resize(0, Sprite::new());
+                image.sprite.resize(0, Sprite::new());
             }
 
             if self.has_sprite_hit() {
-                // dbg!(self.cycle);
                 self.set_sprite_hit();
             }
 
@@ -659,7 +690,7 @@ impl<'a> Ppu<'a> {
             if self.line <= V_SIZE as u16 &&
                     self.scroll_y <= V_SIZE as u8 &&
                     self.line % TILE_SIZE as u16 == 0 {
-                self.build_background();
+                self.build_background(image);
             }
             if self.line == (V_SIZE as u16 + 1) {
                 self.set_vblank();
@@ -675,8 +706,9 @@ impl<'a> Ppu<'a> {
                 self.line = 0;
                 self.background_index = 0;
                 
-                self.get_palette();
-                self.build_sprites();
+                self.get_palette(image);
+                self.build_sprites(image);
+                self.build_dbg_bg(image);
                 return true;
             }
         }

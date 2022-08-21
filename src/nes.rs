@@ -31,10 +31,12 @@ pub fn run(cassette_path: &str, is_test: bool) {
     let mut vram: Ram = Ram::new(VRAM_SIZE);
     let cas: Cassette = Cassette::new(cassette_path);
     let mut interrupts: Interrupts = Interrupts::new();
+    let mut image: Image = Image::new();
     let mut apu: Apu = Apu::new();
     let mut ppu: Ppu = Ppu::new(&cas, &mut vram);
     let mut cpu: Cpu = Cpu::new(&cas, &mut wram);
     let mut game: Game = Game::new().unwrap();
+    // let mut debug_bg: Game = Game::new().unwrap();
     let mut render: Render = Render::new();
 
     cpu.reset(&mut ppu, &mut apu, &mut interrupts);
@@ -45,12 +47,14 @@ pub fn run(cassette_path: &str, is_test: bool) {
         let status: GameStatus =
             game.check_key(&mut cpu).unwrap();
         let cycle: u64 = cpu.run(&mut ppu, &mut apu, &mut interrupts);
-        let is_render_ready: bool = ppu.run(cycle, &mut interrupts);
+        let is_render_ready: bool = ppu.run(cycle, &mut image, &mut interrupts);
         apu.run(cycle, &mut interrupts);    
 
         if is_render_ready {
-            render.render(&ppu.image);
-            game.update(&render.data).unwrap();
+            render.render(&mut image);
+            game.update(&render.data, false).unwrap();
+            game.update(&render.dbg_bg_data, true).unwrap();
+            // debug_bg.update(&render.data).unwrap();
             // end = start.elapsed();
             // let erapsed: f32 = end.subsec_nanos() as f32 / 1_000_000_000 as f32;
             // println!("fps:{}, sec:{}", 1.0 / erapsed, erapsed);

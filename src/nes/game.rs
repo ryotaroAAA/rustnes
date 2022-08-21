@@ -12,7 +12,7 @@ use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use sdl2::gfx::framerate::FPSManager;
 
-pub const SCALE: u32 = 3;
+pub const SCALE: u32 = 2;
 pub const FPS: u32 = 60;
 pub const PAD_DELAY: usize = 10;
 pub const PAD_INTERVAL: usize = 10;
@@ -35,7 +35,11 @@ impl Game {
         let sdl_context: Sdl = sdl2::init()?;
         let video_subsystem = sdl_context.video()?;
         let window = video_subsystem
-            .window("rustness", SCALE * H_SIZE as u32, SCALE * V_SIZE as u32)
+            .window(
+                "rustness",
+                3 * SCALE * H_SIZE as u32,
+                2 * SCALE * V_SIZE as u32
+            )
             .position_centered()
             .build()
             .map_err(|e| e.to_string())?;
@@ -121,9 +125,12 @@ impl Game {
     }
 
     pub fn update(
-        &mut self, data: &Vec<Vec<u64>>)
-    -> Result<GameStatus, Box<dyn std::error::Error>> {
+        &mut self, data: &Vec<Vec<u64>>, is_nametable: bool
+    ) -> Result<GameStatus, Box<dyn std::error::Error>> {
         let mut count: u128 = 0;
+
+        let base =
+            if is_nametable {(SCALE as usize * H_SIZE, 0usize)} else {(0, 0)};
 
         for i in 0..data.len(){
             for j in 0..data[0].len(){
@@ -133,8 +140,8 @@ impl Game {
                 let b: u8 = (data[i][j] & 0x0000FF) as u8;
                 self.canvas.set_draw_color(Color::RGB(r, g, b));
                 _ = self.canvas.fill_rect(Rect::new(
-                    (SCALE as usize * j) as i32,
-                    (SCALE as usize * i) as i32,
+                    (base.0 + SCALE as usize * j) as i32,
+                    (base.1 + SCALE as usize * i) as i32,
                     SCALE,
                     SCALE));
             }

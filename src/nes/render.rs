@@ -24,17 +24,20 @@ const COLORS: [u64; 64] = [
 #[derive(Debug)]
 pub struct Render {
     pub data: Vec<Vec<u64>>,
+    pub dbg_bg_data: Vec<Vec<u64>>,
 }
 
 impl Render {
     pub fn new() -> Render {
         Render {
             data: vec![vec![0; H_SIZE]; V_SIZE],
+            dbg_bg_data: vec![vec![0; 2*H_SIZE]; 2*V_SIZE],
         }
     }
 
     pub fn render(&mut self, image: &Image) {
         self.render_background(image);
+        self.render_dbg_background(image);
         self.render_sprite(image);
     }
 
@@ -48,9 +51,51 @@ impl Render {
     }
 
     fn render_background(&mut self, image: &Image) {
-        for j in 0..V_SPRITE_NUM {
-            for i in 0..H_SPRITE_NUM {
-                self.render_tile(image, i as u8, j as u8);
+        for i in 0..V_SPRITE_NUM {
+            for j in 0..H_SPRITE_NUM {
+                if image.background[i][j].is_background_enable {
+                    self.render_tile(image, j as u8, i as u8);
+                }
+            }
+        }
+    }
+
+    fn render_dbg_tile(
+        &mut self, 
+        image: &Image,
+        tile_x: u16,
+        tile_y: u16
+    ) {
+        let tile:&Tile = &image.dbg_bg[tile_y as usize][tile_x as usize];
+        let palette_id: u16 = tile.palette_id;
+        for j in 0..8 {
+            for i in 0..8 {
+                let x: u16 = 8 * tile_x as u16 + i as u16;
+                let y: u16 = 8 * tile_y as u16 + j as u16;
+                if 0 <= x && x < 2*H_SIZE as u16 && 0 <= y && y < 2*V_SIZE as u16 {
+                    let color_id: u8 = image.palette[(palette_id * 4 +
+                        tile.sprite.data[j as usize][i as usize] as u16) as usize];
+                    self.dbg_bg_data[(y % (2*V_SIZE) as u16) as usize][(x % (2*H_SIZE) as u16) as usize] =
+                        if i == 0 && j == 0 ||
+                                x == 0 || y == 0 ||
+                                x == (256 - 1) || y == (240 - 1) ||
+                                x == (2 * 256 - 1) || y == (2 * 240 - 1) {
+                            0xFF00FF
+                        } else {
+                            COLORS[color_id as usize]
+                        };
+                }
+            }
+        }
+    }
+
+
+    fn render_dbg_background(&mut self, image: &Image) {
+        for j in 0..2*V_SPRITE_NUM {
+            for i in 0..2*H_SPRITE_NUM {
+                if image.dbg_bg[j][i].is_background_enable {
+                    self.render_dbg_tile(image, i as u16, j as u16);
+                }
             }
         }
     }
@@ -83,10 +128,15 @@ impl Render {
                     let color_id: u8 = image.palette[(palette_id * 4 +
                         tile.sprite.data[j as usize][i as usize] as u16) as usize];
                     self.data[((y as u8) % 240) as usize][(x % 256) as usize] =
-                        COLORS[color_id as usize];
+                        if i == 0 && j == 0 ||
+                                x == 0 || y == 0 ||
+                                x == 255 || y == 239 {
+                            0x00FF00
+                        } else {
+                            COLORS[color_id as usize]
+                        };
                 }
-                // if tile_y == 30 && off_y > 0 {
-                // // if off_y > 0 {
+                // if off_x > 0 {
                 //     println!("x:{} y:{} tile_x:{} tile_y:{} i:{} j:{} off_x:{} off_y:{} {} {} {}",
                 //         x, y, tile_x, tile_y, i, j, off_x, off_y, y as u8 % 240 , y as u8 % 224, y as u8);
                 // }
