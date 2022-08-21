@@ -101,11 +101,13 @@ impl Render {
             let is_horizontal_reverse = sprite.attr & 0x40 > 0;
             let is_low_priority = sprite.attr & 0x20 > 0;
             let palette_id = sprite.attr & 0x03;
-
-            for i in 0..8 {
+            let h = sprite.data.len();
+            for i in 0..h {
+                let y = (sprite.y as i16 +
+                    (if is_vertical_reverse {h-1-i} else {i}) as i16) as u8;
                 for j in 0..8 {
-                    let x = (sprite.x as i16 + if is_horizontal_reverse {7-j} else {j}) as u8;
-                    let y = (sprite.y as i16 + if is_vertical_reverse {7-i} else {i}) as u8;
+                    let x = (sprite.x as i16 +
+                        if is_horizontal_reverse {7-j} else {j}) as u8;
                     if is_low_priority && self.should_pixel_hide(image, x, y) {
                         continue;
                     }

@@ -248,6 +248,10 @@ impl<'a> Ppu<'a> {
     fn get_name_table_id(&mut self) -> u8{
         self.creg1 & 0x03
     }
+    // Control Register 1, Sprite Size
+    fn is_large_sprite(&self) -> bool{
+        self.creg1 & 0x20 > 0
+    }
     // Control Register 1, Assert NMI when VBlank
     fn has_vblank_irq_enabled(&mut self) -> bool{
         self.creg1 & 0x80 > 0
@@ -507,16 +511,19 @@ impl<'a> Ppu<'a> {
                 sprite.data[i][j] = 0;
             }
         }
-        for i in 0..16 {
-            let addr: u16 = (sprite_id * 16 + i + offset) as u16;
-            if addr as usize >= self.char_ram.data.len() {
-                continue
-            }
-            let ram: u8 = self.char_ram.read(addr);
-
-            for j in 0..8 {
-                if ram & (0x80 >> j) > 0 {
-                    sprite.data[(i % 8) as usize][j] += 0x01 << (i/8);
+        let h = if self.is_large_sprite() {2} else {1};
+        for k in 0..h {
+            for i in 0..16 {
+                let addr: u16 = ((sprite_id + k) * 16 + i + offset) as u16;
+                if addr as usize >= self.char_ram.data.len() {
+                    continue
+                }
+                let ram: u8 = self.char_ram.read(addr);
+                for j in 0..8 {
+                    if ram & (0x80 >> j) > 0 {
+                        sprite.data[(k * 8 + (i % 8)) as usize][j] +=
+                            0x01 << (i/8);
+                    }
                 }
             }
         }
@@ -525,32 +532,35 @@ impl<'a> Ppu<'a> {
         //         let val = if *b > 0 {"#"} else {" "};
         //         print!("{}", val);
         //     }
-        //     print!("\n");
+        //     print!(";\n");
         // }
-        // print!("\n");
+        // print!(";\n");
             // sprite
     }
-    fn build_objects(&mut self) {
+    fn build_sprites(&mut self) {
         // see https:#wiki.nesdev.com/w/index.php/PPU_OAM
         for i in 0..self.sprite_ram_addr/4 {
             let j: u16 = 4 * i as u16;
-            let mut sprite: Sprite = Sprite::new();
-            sprite.y = self.sprite_ram.read(j);
-            let sprite_id: u16 = self.sprite_ram.read(j + 1) as u16;
-            sprite.attr = self.sprite_ram.read(j + 2);
-            // dbg!(sprite.attr);
-            sprite.x = self.sprite_ram.read(j + 3);
-            // println!("i:{} j:{} x:{} y:{} {:b}", i, j, sprite.x, sprite.x, sprite.attr);
 
-            // if sprite.x == 0  && 
-            //         sprite.y == 0 &&
-            //         sprite.attr == 0 &&
-            //         sprite_id == 0 {
-            //     continue;
-            // }
-            let sprite_table_offset: u16 = self.get_sprite_table_offset();
+            let y: u8 = self.sprite_ram.read(j);
+            let sprite_id: u16 = self.sprite_ram.read(j + 1) as u16;
+            let attr = self.sprite_ram.read(j + 2);
+            let x = self.sprite_ram.read(j + 3);
+            
+            let mut sprite: Sprite = Sprite::new();
+            sprite.y = y;
+            sprite.attr = attr;
+            sprite.x = x;
+            let (sprite_id, offset) = if self.is_large_sprite() {
+                let offset: u16 = 0x1000 * (sprite_id & 0x01);
+                sprite.data = (0..16).into_iter().map(|_| vec![0; 16]).collect();
+                (sprite_id & 0xFE, offset)
+            } else {
+                (sprite_id, self.get_sprite_table_offset())
+            };
+            
             self.build_sprite_data(sprite_id,
-                sprite_table_offset, &mut sprite);
+                offset, &mut sprite);
             self.image.sprite.push(sprite);
         }
     }
@@ -666,7 +676,7 @@ impl<'a> Ppu<'a> {
                 self.background_index = 0;
                 
                 self.get_palette();
-                self.build_objects();
+                self.build_sprites();
                 return true;
             }
         }
