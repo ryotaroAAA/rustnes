@@ -114,9 +114,9 @@ impl Render {
     fn render_dbg_background(&mut self, image: &Image) {
         for j in 0..2*V_SPRITE_NUM {
             for i in 0..2*H_SPRITE_NUM {
-                if image.dbg_bg[j][i].is_background_enable {
+                // if image.dbg_bg[j][i].is_background_enable {
                     self.render_dbg_tile(image, i as u16, j as u16);
-                }
+                // }
             }
         }
     }
