@@ -90,6 +90,7 @@ pub struct Tile {
     pub scroll_y: u8,
     pub sprite_id: u16,
     pub palette_id: u16,
+    pub is_need_update: bool,
     pub is_background_enable: bool,
     pub sprite: Sprite,
 }
@@ -101,6 +102,7 @@ impl Tile {
             scroll_y: 0,
             sprite_id: 0,
             palette_id: 0,
+            is_need_update: true,
             is_background_enable: true,
             sprite: Sprite::new(),
         }
@@ -114,6 +116,8 @@ pub struct Image {
     pub dbg_bg: Vec<Vec<Tile>>,
     pub dbg_pattern: Vec<Sprite>,
     pub palette: [u8; PALETTE_SIZE],
+    pub current_x: u8,
+    pub current_y: u8,
 }
 
 impl Image {
@@ -124,6 +128,8 @@ impl Image {
             dbg_bg: vec![vec![Tile::new(); H_SPRITE_NUM*2]; V_SPRITE_NUM*2],
             dbg_pattern: vec![Sprite::new(); 512],
             palette: [0; PALETTE_SIZE],
+            current_x: 0,
+            current_y: 0,
         }
     }
 }
@@ -595,39 +601,37 @@ impl<'a> Ppu<'a> {
         let palette_id: u16 = (attr >> (block_id * 2)) as u16 & 0x03;
         let background_table_offset: u16 =
             self.get_background_table_offset();
-
-        // let is_no_update =
-        //     image.background[i as usize][j as usize].sprite_id == sprite_id &&
-        //     image.background[i as usize][j as usize].palette_id == palette_id &&
-        //     image.background[i as usize][j as usize].scroll_x == self.scroll_x &&
-        //     image.background[i as usize][j as usize].scroll_y == self.scroll_y;
+        let tile = &mut image.background[i as usize][j as usize];
+        let is_no_update =
+            tile.sprite_id == sprite_id &&
+            tile.palette_id == palette_id &&
+            tile.scroll_x == self.scroll_x &&
+            tile.scroll_y == self.scroll_y;
 
         // if is_no_update {
-        //     // return;
+        //     tile.is_need_update = false;
+        //     return;
+        // } else {
+        //     tile.is_need_update = true;
         // }
-        image.background[i as usize][j as usize].sprite_id =
-            sprite_id;
-        image.background[i as usize][j as usize].palette_id =
-            palette_id;
+        tile.sprite_id = sprite_id;
+        tile.palette_id = palette_id;
         self.build_sprite_data(
             true,
             sprite_id,
             background_table_offset,
-            &mut image.background[i as usize][j as usize].sprite
+            &mut tile.sprite
         );
-        image.background[i as usize][j as usize].scroll_x =
-            self.scroll_x;
-        image.background[i as usize][j as usize].scroll_y =
-            self.scroll_y;
-        image.background[i as usize][j as usize].is_background_enable =
-            self.get_is_background_enable();
+        tile.scroll_x = self.scroll_x;
+        tile.scroll_y = self.scroll_y;
+        tile.is_background_enable = self.get_is_background_enable();
     }
     // draw every 8 line
     fn build_background(&mut self, image: &mut Image) {
         let i : u8 = self.background_index;
         let tile_y: u8 = self.get_scroll_tile_y() % V_SPRITE_NUM as u8;
         let y_offset: u8 =
-            2 * (self.get_scroll_tile_y() / V_SPRITE_NUM as u8);
+            2 * ((self.get_scroll_tile_y() / V_SPRITE_NUM as u8) % 2);
         for j in 0..H_SPRITE_NUM as u8 {
             let x: u8 = (j + self.get_scroll_tile_x()) as u8;
             let tile_x: u8 = x % H_SPRITE_NUM as u8;
@@ -746,11 +750,12 @@ impl<'a> Ppu<'a> {
                 interrupts.deassert_nmi();
                 self.line = 0;
                 self.background_index = 0;
-                
                 self.get_palette(image);
                 self.build_sprites(image);
                 self.build_dbg_bg(image);
                 self.build_dbg_patterns(image);
+                image.current_x = self.scroll_x;
+                image.current_y = self.scroll_y;
                 return true;
             }
         }

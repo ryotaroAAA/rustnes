@@ -21,7 +21,7 @@ pub const PAD_INTERVAL: usize = 10;
 pub struct Game {
     canvas: sdl2::render::Canvas<Window>,
     sdl_context: Sdl,
-    fps_manager: FPSManager
+    fps_manager: FPSManager,
 }
 
 #[derive(Debug, PartialEq)]
@@ -135,7 +135,6 @@ impl Game {
     pub fn update(
         &mut self, data: &Vec<Vec<u64>>, mode: UpdateMode
     ) -> Result<GameStatus, Box<dyn std::error::Error>> {
-        let mut count: u128 = 0;
 
         let base = match mode {
             UpdateMode::Game => (0,0),
@@ -150,7 +149,8 @@ impl Game {
                 let r: u8 = ((data[i][j] & 0xFF0000) >> 16) as u8;
                 let g: u8 = ((data[i][j] & 0x00FF00) >> 8) as u8;
                 let b: u8 = (data[i][j] & 0x0000FF) as u8;
-                self.canvas.set_draw_color(Color::RGB(r, g, b));
+                let a: u8 = 0xFF;
+                self.canvas.set_draw_color(Color::RGBA(r, g, b, a));
                 _ = self.canvas.fill_rect(Rect::new(
                     (base.0 + SCALE as usize * j) as i32,
                     (base.1 + SCALE as usize * i) as i32,
@@ -159,7 +159,7 @@ impl Game {
             }
         }
         self.canvas.present();
-        self.fps_manager.delay();
+        // self.fps_manager.delay();
         // dbg!(self.fps_manager.get_framerate());
         
         Ok(GameStatus::Ok)

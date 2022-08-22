@@ -41,8 +41,9 @@ pub fn run(cassette_path: &str, is_test: bool) {
 
     cpu.reset(&mut ppu, &mut apu, &mut interrupts);
 
-    // let mut start = Instant::now();
-    // let mut end = start.elapsed();
+    let mut start = Instant::now();
+    let mut end = start.elapsed();
+    let mut is_dbg_rendered: bool = false;
     loop {
         let status: GameStatus =
             game.check_key(&mut cpu).unwrap();
@@ -56,12 +57,15 @@ pub fn run(cassette_path: &str, is_test: bool) {
                 UpdateMode::Game).unwrap();
             game.update(&render.dbg_bg_data,
                 UpdateMode::NameTable).unwrap();
-            game.update(&render.dbg_pattern_data,
-                UpdateMode::PatternTable).unwrap();
-            // end = start.elapsed();
-            // let erapsed: f32 = end.subsec_nanos() as f32 / 1_000_000_000 as f32;
+            // if !is_dbg_rendered {
+                game.update(&render.dbg_pattern_data,
+                    UpdateMode::PatternTable).unwrap();
+                // is_dbg_rendered = true;
+            // }
+            end = start.elapsed();
+            let erapsed: f32 = end.subsec_nanos() as f32 / 1_000_000_000 as f32;
             // println!("fps:{}, sec:{}", 1.0 / erapsed, erapsed);
-            // start = Instant::now();
+            start = Instant::now();
         }
         if status == GameStatus::Exit {
             println!("Exit...");

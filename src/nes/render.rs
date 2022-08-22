@@ -23,25 +23,31 @@ const COLORS: [u64; 64] = [
 
 #[derive(Debug)]
 pub struct Render {
+    is_pattern_rendered: bool,
     pub data: Vec<Vec<u64>>,
     pub dbg_bg_data: Vec<Vec<u64>>,
     pub dbg_pattern_data: Vec<Vec<u64>>,
+    pub temp: u16,
 }
 
 impl Render {
     pub fn new() -> Render {
         Render {
+            is_pattern_rendered: false,
             data: vec![vec![0; H_SIZE]; V_SIZE],
             dbg_bg_data: vec![vec![0; 2*H_SIZE]; 2*V_SIZE],
             dbg_pattern_data: vec![vec![0; H_SIZE]; V_SIZE],
+            temp: 0,
         }
     }
 
     pub fn render(&mut self, image: &Image) {
         self.render_background(image);
         self.render_dbg_background(image);
-        self.render_pattern(image);
         self.render_sprite(image);
+        // if !self.is_pattern_rendered {
+            self.render_pattern(image);
+        // }
     }
 
     fn should_pixel_hide(&self, image: &Image, x: u8, y: u8) -> bool{
@@ -70,6 +76,16 @@ impl Render {
         tile_y: u16
     ) {
         let tile:&Tile = &image.dbg_bg[tile_y as usize][tile_x as usize];
+        if !tile.is_need_update {
+            return;
+        }
+        let current_x: u16 = (image.current_x as u16) as u16;
+        let current_y: u16 = (image.current_y as u16) as u16;
+        if self.temp != image.current_y as u16 {
+            // dbg!(image.current_y, current_y);
+            self.temp = image.current_y as u16;
+        }
+
         let palette_id: u16 = tile.palette_id;
         for j in 0..8 {
             for i in 0..8 {
@@ -84,6 +100,9 @@ impl Render {
                                 x == (256 - 1) || y == (240 - 1) ||
                                 x == (2 * 256 - 1) || y == (2 * 240 - 1) {
                             0xFF00FF
+                        } else if x == current_x || x == current_x + H_SIZE as u16 ||
+                                y == current_y || y == current_y + V_SIZE as u16 {
+                            0
                         } else {
                             COLORS[color_id as usize]
                         };
@@ -108,9 +127,10 @@ impl Render {
         tile_x: u8,
         tile_y: u8
     ) {
-        // println!("{} {}", &image.background.len(), &image.background[0].len());
-        let tile:&Tile = &image
-            .background[tile_y as usize][tile_x as usize];
+        let tile:&Tile = &image.background[tile_y as usize][tile_x as usize];
+        // if !tile.is_need_update {
+        //     return;
+        // }
         // if tile.sprite_id > 0 {
         //     for a in &tile.sprite.data {
         //         for b in a.iter() {
@@ -138,10 +158,6 @@ impl Render {
                             COLORS[color_id as usize]
                         };
                 }
-                // if off_x > 0 {
-                //     println!("x:{} y:{} tile_x:{} tile_y:{} i:{} j:{} off_x:{} off_y:{} {} {} {}",
-                //         x, y, tile_x, tile_y, i, j, off_x, off_y, y as u8 % 240 , y as u8 % 224, y as u8);
-                // }
             }
         }
     }
@@ -168,6 +184,7 @@ impl Render {
                 }
             }
         }
+        // self.is_pattern_rendered = true;
     }
 
     fn render_sprite(&mut self, image: &Image) {
@@ -187,7 +204,6 @@ impl Render {
                     if is_low_priority && self.should_pixel_hide(image, x, y) {
                         continue;
                     }
-
                     if sprite.data[i as usize][j as usize] > 0 &&
                             !(y >= V_SIZE as u8) {
                         let color_id = palette[(palette_id * 4 +
