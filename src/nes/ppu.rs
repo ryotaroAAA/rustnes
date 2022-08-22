@@ -319,7 +319,7 @@ impl<'a> Ppu<'a> {
             (self.get_name_table_id() / 2) as u16 * V_SIZE as u16) / 8 - 1) as u8 
     }
     fn get_block_id(&mut self, x: u16, y: u16) -> u8{
-        (((x % 4) / 2 + (y % 4) / 2) * 2) as u8
+        ((x % 4) / 2 + ((y % 4) / 2) * 2) as u8
     }
     fn get_vram_addr(&mut self, sprite_addr: u16) -> u16 {
         if self.is_horizontal_mirror {
@@ -602,12 +602,11 @@ impl<'a> Ppu<'a> {
         let background_table_offset: u16 =
             self.get_background_table_offset();
         let tile = &mut image.background[i as usize][j as usize];
-        let is_no_update =
-            tile.sprite_id == sprite_id &&
-            tile.palette_id == palette_id &&
-            tile.scroll_x == self.scroll_x &&
-            tile.scroll_y == self.scroll_y;
-
+        // let is_no_update =
+        //     tile.sprite_id == sprite_id &&
+        //     tile.palette_id == palette_id &&
+        //     tile.scroll_x == self.scroll_x &&
+        //     tile.scroll_y == self.scroll_y;
         // if is_no_update {
         //     tile.is_need_update = false;
         //     return;
