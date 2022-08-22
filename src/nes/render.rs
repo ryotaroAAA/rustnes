@@ -92,7 +92,6 @@ impl Render {
         }
     }
 
-
     fn render_dbg_background(&mut self, image: &Image) {
         for j in 0..2*V_SPRITE_NUM {
             for i in 0..2*H_SPRITE_NUM {

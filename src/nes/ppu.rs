@@ -322,11 +322,16 @@ impl<'a> Ppu<'a> {
                 0x0400..=0x07FF => sprite_addr - 0x0400,
                 0x0800..=0x0BFF => sprite_addr,
                 0x0C00..=0x0FFF => sprite_addr - 0x0400,
-                // _ => sprite_addr,
                 _ => panic!("invalid sprite_addr {}", sprite_addr),
             }
         } else {
-            sprite_addr
+            match sprite_addr {
+                0x0000..=0x03FF => sprite_addr,
+                0x0400..=0x07FF => sprite_addr,
+                0x0800..=0x0BFF => sprite_addr - 0x0800,
+                0x0C00..=0x0FFF => sprite_addr - 0x0800,
+                _ => panic!("invalid sprite_addr {}", sprite_addr),
+            }
         }
     }
     // read from name_table
@@ -621,19 +626,18 @@ impl<'a> Ppu<'a> {
     fn build_background(&mut self, image: &mut Image) {
         let i : u8 = self.background_index;
         let tile_y: u8 = self.get_scroll_tile_y() % V_SPRITE_NUM as u8;
-        let table_id_offset: u8 =
-            if (self.get_scroll_tile_y() / V_SPRITE_NUM as u8) % 2 > 0 {2} else {0};
-        // dbg!(table_id_offset);
+        let y_offset: u8 =
+            2 * (self.get_scroll_tile_y() / V_SPRITE_NUM as u8);
         for j in 0..H_SPRITE_NUM as u8 {
-            let tile_x: u8 = (j + self.get_scroll_tile_x()) % H_SPRITE_NUM as u8;
-            let name_table_id: u8 = 
-                (j / H_SPRITE_NUM as u8) % 2 + table_id_offset;
-            let offset_addr_by_name_table: u16 =
-                name_table_id as u16 * 0x0400;
-            // dbg!(offset_addr_by_name_table);
+            let x: u8 = (j + self.get_scroll_tile_x()) as u8;
+            let tile_x: u8 = x % H_SPRITE_NUM as u8;
+            let bg_id: u8 = (x / H_SPRITE_NUM as u8) % 2 + y_offset;
+            let offset: u16 = bg_id as u16 * 0x0400;
             self.build_tile(
-                image, tile_x, tile_y,
-                offset_addr_by_name_table,
+                image,
+                tile_x,
+                tile_y,
+                offset,
                 i, j
             );
         }
