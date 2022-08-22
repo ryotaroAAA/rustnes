@@ -58,7 +58,6 @@ pub fn run(cassette_path: &str, is_test: bool) {
                 UpdateMode::NameTable).unwrap();
             game.update(&render.dbg_pattern_data,
                 UpdateMode::PatternTable).unwrap();
-            // debug_bg.update(&render.data).unwrap();
             // end = start.elapsed();
             // let erapsed: f32 = end.subsec_nanos() as f32 / 1_000_000_000 as f32;
             // println!("fps:{}, sec:{}", 1.0 / erapsed, erapsed);

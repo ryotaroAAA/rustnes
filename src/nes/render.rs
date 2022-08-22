@@ -75,7 +75,7 @@ impl Render {
             for i in 0..8 {
                 let x: u16 = 8 * tile_x as u16 + i as u16;
                 let y: u16 = 8 * tile_y as u16 + j as u16;
-                if 0 <= x && x < 2*H_SIZE as u16 && 0 <= y && y < 2*V_SIZE as u16 {
+                if x < 2*H_SIZE as u16 && y < 2*V_SIZE as u16 {
                     let color_id: u8 = image.palette[(palette_id * 4 +
                         tile.sprite.data[j as usize][i as usize] as u16) as usize];
                     self.dbg_bg_data[(y % (2*V_SIZE) as u16) as usize][(x % (2*H_SIZE) as u16) as usize] =
@@ -148,43 +148,24 @@ impl Render {
     }
 
     fn render_pattern(&mut self, image: &Image) {
-        // for sprite in image.dbg_pattern.iter() {
         for (i, sprite) in image.dbg_pattern.iter().enumerate() {
-            if i > 10 {
-                break;
-            }
             let palette:[u8; PALETTE_SIZE] = image.palette;
             let palette_id = 0;
             let h = sprite.data.len();
-            for a in &image.dbg_pattern[i].data {
-                for b in a.iter(){
-                    let val = match *b {
-                        0 => " ",
-                        1 => ".",
-                        2 => "*",
-                        3 => "#",
-                        _ => " ",
-                    };
-                    print!("{}", val);
-                }
-                print!(";\n");
-            }
-            // print!(";\n");
             for i in 0..h {
                 let y = sprite.y + i as u8;
                 for j in 0..8 {
                     let x = sprite.x + j as u8;
-                    // let color_id = palette[(palette_id * 4 +
-                    //     sprite.data[i as usize][j as usize] + 0x10) as usize];
-                    dbg!(x, y);
+                    let color_id = palette[(palette_id * 4 +
+                        sprite.data[i as usize][j as usize] + 0x10) as usize];
                     self.dbg_pattern_data[y as usize % V_SIZE][x as usize % H_SIZE] =
-                        match sprite.data[i as usize][j as usize] {
-                            0 => 0x000FF0,
-                            1 => 0xFF0000,
-                            2 => 0x00FF00,
-                            3 => 0x0000FF,
-                            _ => 0x0FF000,
-                        };
+                    if i == 0 && j == 0 ||
+                            x == 0 || y == 0 || y == 64 ||
+                            x == 255 || y == 239 {
+                        0x0000FF
+                    } else {
+                        COLORS[color_id as usize]
+                    };
                 }
             }
         }

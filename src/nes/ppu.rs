@@ -122,7 +122,7 @@ impl Image {
             sprite: Vec::new(),
             background: vec![vec![Tile::new(); H_SPRITE_NUM]; V_SPRITE_NUM],
             dbg_bg: vec![vec![Tile::new(); H_SPRITE_NUM*2]; V_SPRITE_NUM*2],
-            dbg_pattern: vec![Sprite::new(); 256*2],
+            dbg_pattern: vec![Sprite::new(); 512],
             palette: [0; PALETTE_SIZE],
         }
     }
@@ -527,14 +527,17 @@ impl<'a> Ppu<'a> {
                 }
             }
         }
-        // for a in &sprite.data{
-        //     for b in a.iter(){
-        //         let val = if *b > 0 {"#"} else {" "};
-        //         print!("{}", val);
+        // if sprite_id == 0 {
+        //     for a in &sprite.data{
+        //         for b in a.iter(){
+        //             let val = if *b > 0 {"#"} else {" "};
+        //             print!("{}", val);
+        //         }
+        //         print!(";\n");
         //     }
         //     print!(";\n");
         // }
-        // print!(";\n");
+
             // sprite
     }
     fn build_sprites(&mut self, image: &mut Image) {
@@ -551,7 +554,7 @@ impl<'a> Ppu<'a> {
             sprite.y = y;
             sprite.attr = attr;
             sprite.x = x;
-            // println!("{} {}", x, y);
+            // println!("{}", sprite_id);
             let (sprite_id, offset) = if self.is_large_sprite() {
                 let offset: u16 = 0x1000 * (sprite_id & 0x01);
                 sprite.data = (0..16).into_iter().map(|_| vec![0; 16]).collect();
@@ -565,6 +568,17 @@ impl<'a> Ppu<'a> {
                 offset,
                 &mut sprite
             );
+            // if sprite_id > 0 {
+            //     dbg!(i, j+1, sprite_id, self.sprite_ram_addr);
+            //     for a in &sprite.data{
+            //         for b in a.iter(){
+            //             // let val = if *b > 0 {"#"} else {" "};
+            //             print!("{}", *b);
+            //         }
+            //         print!(";\n");
+            //     }
+            //     print!(";\n");
+            // }
             image.sprite.push(sprite);
         }
     }
@@ -626,37 +640,22 @@ impl<'a> Ppu<'a> {
         self.background_index += 1;
     }
 
-
     fn build_dbg_patterns(&mut self, image: &mut Image) {
-        for base in 0..10 {
-        // for base in 0..0x2000/0x10 {
-            let sprite = &mut image.dbg_pattern[base];
-            sprite.x = ((base % H_SIZE) * H_SIZE) as u8;
-            sprite.y = ((base / H_SIZE) * V_SIZE) as u8;
-            let background_table_offset: u16 =
-                self.get_background_table_offset();
-            self.build_sprite_data(
-                true,
-                base as u16,
-                background_table_offset,
-                sprite
-            );
-            dbg!(base, sprite.x, sprite.y);
-            // for a in &image.dbg_pattern[base].data {
-            //     for b in a.iter(){
-            //         let val = match *b {
-            //             0 => " ",
-            //             1 => ".",
-            //             2 => "*",
-            //             3 => "#",
-            //             _ => " ",
-            //         };
-            //         print!("{}", val);
-            //     }
-            //     print!(";\n");
-            // }
-            // print!(";\n");
-        } 
+        for i in 0..2 {
+            let base = i * 0x1000;
+            for j in 0..256 {
+                let index = base + j;
+                let sprite = &mut image.dbg_pattern[j + 256*i];
+                sprite.x = ((j * 8) % H_SIZE) as u8;
+                sprite.y = ((i*8*8 + (j / H_SPRITE_NUM) * 8) % V_SIZE) as u8;
+                self.build_sprite_data(
+                    true,
+                    j as u16,
+                    base as u16,
+                    sprite
+                );
+            } 
+        }
     }
 
     fn build_dbg_bg(&mut self, image: &mut Image) {
@@ -692,13 +691,14 @@ impl<'a> Ppu<'a> {
 
                 // let is_no_update =
                 //     image.dbg_bg[i as usize][j as usize].sprite_id == sprite_id &&
-                //     image.dbg_bg[i as usize][j as usize].palette_id == palette_id;
+                //     image.dbg_bg[i as usize][j as usize].attr == attr;
                 // if is_no_update {
                 //     continue;
                 // }
 
                 let background_table_offset: u16 =
                     self.get_background_table_offset();
+                // image.dbg_bg[i as usize][j as usize].attr = attr;
                 self.build_sprite_data(
                     true,
                     sprite_id,
