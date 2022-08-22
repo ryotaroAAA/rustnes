@@ -25,6 +25,7 @@ const COLORS: [u64; 64] = [
 pub struct Render {
     pub data: Vec<Vec<u64>>,
     pub dbg_bg_data: Vec<Vec<u64>>,
+    pub dbg_pattern_data: Vec<Vec<u64>>,
 }
 
 impl Render {
@@ -32,12 +33,14 @@ impl Render {
         Render {
             data: vec![vec![0; H_SIZE]; V_SIZE],
             dbg_bg_data: vec![vec![0; 2*H_SIZE]; 2*V_SIZE],
+            dbg_pattern_data: vec![vec![0; H_SIZE]; V_SIZE],
         }
     }
 
     pub fn render(&mut self, image: &Image) {
         self.render_background(image);
         self.render_dbg_background(image);
+        self.render_pattern(image);
         self.render_sprite(image);
     }
 
@@ -140,6 +143,49 @@ impl Render {
                 //     println!("x:{} y:{} tile_x:{} tile_y:{} i:{} j:{} off_x:{} off_y:{} {} {} {}",
                 //         x, y, tile_x, tile_y, i, j, off_x, off_y, y as u8 % 240 , y as u8 % 224, y as u8);
                 // }
+            }
+        }
+    }
+
+    fn render_pattern(&mut self, image: &Image) {
+        // for sprite in image.dbg_pattern.iter() {
+        for (i, sprite) in image.dbg_pattern.iter().enumerate() {
+            if i > 10 {
+                break;
+            }
+            let palette:[u8; PALETTE_SIZE] = image.palette;
+            let palette_id = 0;
+            let h = sprite.data.len();
+            for a in &image.dbg_pattern[i].data {
+                for b in a.iter(){
+                    let val = match *b {
+                        0 => " ",
+                        1 => ".",
+                        2 => "*",
+                        3 => "#",
+                        _ => " ",
+                    };
+                    print!("{}", val);
+                }
+                print!(";\n");
+            }
+            // print!(";\n");
+            for i in 0..h {
+                let y = sprite.y + i as u8;
+                for j in 0..8 {
+                    let x = sprite.x + j as u8;
+                    // let color_id = palette[(palette_id * 4 +
+                    //     sprite.data[i as usize][j as usize] + 0x10) as usize];
+                    dbg!(x, y);
+                    self.dbg_pattern_data[y as usize % V_SIZE][x as usize % H_SIZE] =
+                        match sprite.data[i as usize][j as usize] {
+                            0 => 0x000FF0,
+                            1 => 0xFF0000,
+                            2 => 0x00FF00,
+                            3 => 0x0000FF,
+                            _ => 0x0FF000,
+                        };
+                }
             }
         }
     }

@@ -30,6 +30,14 @@ pub enum GameStatus {
     Ok
 }
 
+#[derive(Debug, PartialEq)]
+pub enum UpdateMode {
+    Game,
+    NameTable,
+    PatternTable,
+}
+
+
 impl Game {
     pub fn new() -> Result<Game, Box<dyn std::error::Error>> {
         let sdl_context: Sdl = sdl2::init()?;
@@ -125,12 +133,16 @@ impl Game {
     }
 
     pub fn update(
-        &mut self, data: &Vec<Vec<u64>>, is_nametable: bool
+        &mut self, data: &Vec<Vec<u64>>, mode: UpdateMode
     ) -> Result<GameStatus, Box<dyn std::error::Error>> {
         let mut count: u128 = 0;
 
-        let base =
-            if is_nametable {(SCALE as usize * H_SIZE, 0usize)} else {(0, 0)};
+        let base = match mode {
+            UpdateMode::Game => (0,0),
+            UpdateMode::NameTable => (SCALE as usize * H_SIZE, 0usize),
+            UpdateMode::PatternTable => (0usize, SCALE as usize * V_SIZE),
+            _ => panic!("invalid mode {:?}", mode),
+        };
 
         for i in 0..data.len(){
             for j in 0..data[0].len(){

@@ -112,6 +112,7 @@ pub struct Image {
     pub sprite: Vec<Sprite>,
     pub background: Vec<Vec<Tile>>,
     pub dbg_bg: Vec<Vec<Tile>>,
+    pub dbg_pattern: Vec<Sprite>,
     pub palette: [u8; PALETTE_SIZE],
 }
 
@@ -121,6 +122,7 @@ impl Image {
             sprite: Vec::new(),
             background: vec![vec![Tile::new(); H_SPRITE_NUM]; V_SPRITE_NUM],
             dbg_bg: vec![vec![Tile::new(); H_SPRITE_NUM*2]; V_SPRITE_NUM*2],
+            dbg_pattern: vec![Sprite::new(); 256*2],
             palette: [0; PALETTE_SIZE],
         }
     }
@@ -515,6 +517,7 @@ impl<'a> Ppu<'a> {
                 if addr as usize >= self.char_ram.data.len() {
                     continue
                 }
+                // read from pattern table
                 let ram: u8 = self.char_ram.read(addr);
                 for j in 0..8 {
                     if ram & (0x80 >> j) > 0 {
@@ -548,6 +551,7 @@ impl<'a> Ppu<'a> {
             sprite.y = y;
             sprite.attr = attr;
             sprite.x = x;
+            // println!("{} {}", x, y);
             let (sprite_id, offset) = if self.is_large_sprite() {
                 let offset: u16 = 0x1000 * (sprite_id & 0x01);
                 sprite.data = (0..16).into_iter().map(|_| vec![0; 16]).collect();
@@ -620,6 +624,39 @@ impl<'a> Ppu<'a> {
             );
         }
         self.background_index += 1;
+    }
+
+
+    fn build_dbg_patterns(&mut self, image: &mut Image) {
+        for base in 0..10 {
+        // for base in 0..0x2000/0x10 {
+            let sprite = &mut image.dbg_pattern[base];
+            sprite.x = ((base % H_SIZE) * H_SIZE) as u8;
+            sprite.y = ((base / H_SIZE) * V_SIZE) as u8;
+            let background_table_offset: u16 =
+                self.get_background_table_offset();
+            self.build_sprite_data(
+                true,
+                base as u16,
+                background_table_offset,
+                sprite
+            );
+            dbg!(base, sprite.x, sprite.y);
+            // for a in &image.dbg_pattern[base].data {
+            //     for b in a.iter(){
+            //         let val = match *b {
+            //             0 => " ",
+            //             1 => ".",
+            //             2 => "*",
+            //             3 => "#",
+            //             _ => " ",
+            //         };
+            //         print!("{}", val);
+            //     }
+            //     print!(";\n");
+            // }
+            // print!(";\n");
+        } 
     }
 
     fn build_dbg_bg(&mut self, image: &mut Image) {
@@ -709,6 +746,7 @@ impl<'a> Ppu<'a> {
                 self.get_palette(image);
                 self.build_sprites(image);
                 self.build_dbg_bg(image);
+                self.build_dbg_patterns(image);
                 return true;
             }
         }
