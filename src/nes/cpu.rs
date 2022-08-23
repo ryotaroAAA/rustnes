@@ -245,15 +245,18 @@ impl<'a> Cpu<'a> {
         // println!(" write {:#X} {:#X}", addr, data);
         match addr {
             0x0000 ..= 0x1FFF => self.wram.write(addr, data),
-            0x2000 ..= 0x2007 => ppu.write(addr - 0x2000, data), // ppu write
+            0x2000 ..= 0x2007 => {
+                // println!("ppu_write {:#X} {:#X}", addr - 0x2000, data);
+                ppu.write(addr - 0x2000, data); // ppu write
+            },
             0x4014 => {
                 let ram_addr_s: u16 = (data as u16 * SPRITE_RAM_SIZE as u16) as u16;
                 ppu.write_sprite_ram_addr(0);
                 for i in 0..SPRITE_RAM_SIZE {
-                    // self.wram.read(ram_addr_s + i as u16)
-                    let addr_: u8 =
+                    // self.wram.read(ram_addr_s + i as u16);
+                    let data: u8 =
                         self.read(ppu, apu, interrupts, ram_addr_s + i as u16);
-                    ppu.write_sprite_ram_data(addr_);
+                    ppu.write_sprite_ram_data(data);
                 }
                 // self.cycle += 514; // ?
             }, // dma 

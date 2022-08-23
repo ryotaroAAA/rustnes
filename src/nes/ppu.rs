@@ -371,22 +371,30 @@ impl<'a> Ppu<'a> {
     // read by cpu
     fn vram_read(&mut self) -> u8{
         let vram_buf: u8 = self.vram_buf;
-        if self.vram_addr >= 0x2000 {
-            // name table, attribute table, pallette
-            let addr = self.calc_vram_addr();
-            // println!(" SSS vram_read vram_addr:{:X} buf:{:X}",
-                // self.vram_addr, self.vram_buf);
-            // println!(" SSS off:{:X}", self.get_vram_offset());
-            self.vram_addr += self.get_vram_offset() as u16;
-            if addr >= 0x3F00 {
-                // palette
-                return self.vram.read(addr - 0x3F00);
-            }
-            self.vram_buf = self.vram.read(addr);
-        } else {
+        match self.vram_addr {
             // pattern table from charactor rom
-            self.vram_buf = self.char_ram.read(self.vram_addr);
-            self.vram_addr += self.get_vram_offset() as u16;
+            0x0000..=0x1FFF => {
+                self.vram_buf = self.char_ram.read(self.vram_addr);
+                self.vram_addr += self.get_vram_offset() as u16;
+            },
+            // name table, attr table
+            0x2000..=0x3EFF => {
+                let addr = if self.vram_addr >= 0x3000 {
+                    self.vram_addr - 0x3000
+                } else {
+                    self.vram_addr - 0x2000
+                };
+                self.vram_addr += self.get_vram_offset() as u16;
+                self.vram_buf = self.vram.read(addr);
+            },
+            // pallette
+            0x3F00..=0x4000 => {
+                // let addr = self.vram_addr - 0x2000;
+                let addr = self.vram_addr;
+                self.vram_addr += self.get_vram_offset() as u16;
+                return self.vram.read(addr - 0x3F00);
+            },
+            _ => panic!("invalid addr: {}", self.vram_addr),
         }
         vram_buf as u8
     }
@@ -419,8 +427,8 @@ impl<'a> Ppu<'a> {
                 // PPUDATA
                 return self.vram_read();
             },
-            // _ => 0,
-            _ => panic!("invalid addr {:#X}", addr)
+            _ => 0,
+            // _ => panic!("invalid addr {:#X}", addr)
         }
     }
     pub fn write_sprite_ram_addr(&mut self, data: u8) {
@@ -452,27 +460,28 @@ impl<'a> Ppu<'a> {
     }
     // write by cpu
     fn write_vram_data(&mut self, data: u8) {
-        // println!("{:X} {:X}", self.vram_addr, data);
-        if self.vram_addr >= 0x2000 {
-            if self.vram_addr >= 0x3F00 && self.vram_addr < 0x4000 {
-                // pallette
-                // dbg!(self.vram_addr, data);
-                self.palette.write(self.vram_addr - 0x3F00, data);
-            } else {
-                // name table, attr table
-                let addr: u16 = self.calc_vram_addr();
-                // let addr: u16 = self.calc_vram_addr() % VRAM_SIZE as u16;
-                // dbg!(self.vram_addr, addr, data);
-                // println!(" XXX {:05X} {:05X}", addr, data);
-                self.vram.write(addr, data);
-            }
-        } else {
+        match self.vram_addr {
             // pattern table from charactor rom
-            // if self.vram_addr as usize >= self.char_ram.data.len() {
-            //     return
-            // }
-            println!("{} {}", self.vram_addr, data);
-            self.char_ram.write(self.vram_addr, data);
+            0x0000..=0x1FFF => {
+                println!("write_vram_data {:#06X} {:#04X}", self.vram_addr, data);
+                if self.vram_addr as usize >= self.char_ram.data.len() {
+                    return
+                }
+                // println!("char ram write addr:{} data:{}", self.vram_addr, data);
+                // self.char_ram.write(self.vram_addr, data);
+            },
+            // name table, attr table
+            0x2000..=0x3EFF => {
+                let addr: u16 = self.calc_vram_addr();
+                self.vram.write(addr, data);
+            },
+            0x3F00..=0x4000 => {
+                // pallette
+                let addr: u16 = self.calc_vram_addr();
+
+                self.palette.write(self.vram_addr - 0x3F00, data);
+            },
+            _ => panic!("invalid addr: {}", self.vram_addr),
         }
         self.vram_addr += self.get_vram_offset() as u16;
     }
