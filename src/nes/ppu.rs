@@ -149,12 +149,9 @@ impl Palette {
         let mut palette: [u8; 32] = [0u8; PALETTE_SIZE];
         for i in 0..PALETTE_SIZE {
             palette[i] = if self.is_sprite_mirror(i as u16) {
-                // println!("is mirror {}", i);
                 self.ram.read(i as u16 - 0x10)
             } else if self.is_background_mirror(i as u16) {
-                // println!("is mirror {}", i);
-                // self.ram.read(0x00)
-                self.ram.read(i as u16)
+                self.ram.read(0x00)
             } else {
                 self.ram.read(i as u16)
             };
@@ -209,26 +206,24 @@ pub struct Ppu<'a> {
     creg1: u8,
     creg2: u8,
     sreg: u8,
+    is_char_rom: bool,
     palette: Palette,
     sprite_ram: Ram,
+    // char_rom: Ram,
     char_ram: Ram,
     vram: &'a mut Ram,
 }
 
 impl<'a> Ppu<'a> {
     pub fn new(cas: &Cassette, vram: &'a mut Ram) -> Ppu<'a> {
-        let mut char_ram;
-        if cas.char_size > 0 {
-            char_ram = Ram::new(cas.char_size);
-            for i in 0..cas.char_size {
-                if i < 0x50 {
-                    println!("addr:{:#06X} data:{:#04X}", i, cas.char_rom[i]);
-                }
-                char_ram.write(i as u16, cas.char_rom[i]);
-            }
+        let size = if cas.char_size > 0 {
+            cas.char_size
         } else {
-            // todo: size?
-            char_ram = Ram::new(0x4000);
+            0x2000
+        };
+        let mut char_ram = Ram::new(size);
+        for i in 0..cas.char_size {
+            char_ram.write(i as u16, cas.char_rom[i]);
         }
         Ppu {
             cycle: 0,
@@ -246,8 +241,10 @@ impl<'a> Ppu<'a> {
             creg1: 0,
             creg2: 0,
             sreg: 0,
+            is_char_rom: cas.char_size > 0,
             palette: Palette::new(PALETTE_SIZE),
             sprite_ram: Ram::new(SPRITE_RAM_SIZE),
+            // char_rom: char_rom,
             char_ram: char_ram,
             vram: vram,
         }
@@ -361,41 +358,28 @@ impl<'a> Ppu<'a> {
     fn get_palette(&mut self, image: &mut Image) {
         image.palette = self.palette.read();
     }
-    fn calc_vram_addr(&mut self) -> u16{
-        if self.vram_addr >= 0x3000 && self.vram_addr < 0x3F00 {
-            self.vram_addr - 0x3000
-        } else {
-            self.vram_addr - 0x2000
-        }
-    }
     // read by cpu
     fn vram_read(&mut self) -> u8{
-        let vram_buf: u8 = self.vram_buf;
+        let mut vram_buf: u8 = self.vram_buf;
+        self.vram_addr %= 0x4000;
         match self.vram_addr {
             // pattern table from charactor rom
             0x0000..=0x1FFF => {
                 self.vram_buf = self.char_ram.read(self.vram_addr);
-                self.vram_addr += self.get_vram_offset() as u16;
             },
             // name table, attr table
             0x2000..=0x3EFF => {
-                let addr = if self.vram_addr >= 0x3000 {
-                    self.vram_addr - 0x3000
-                } else {
-                    self.vram_addr - 0x2000
-                };
-                self.vram_addr += self.get_vram_offset() as u16;
-                self.vram_buf = self.vram.read(addr);
+                self.vram_buf = self.vram.read(self.vram_addr % 0x1000);
             },
             // pallette
             0x3F00..=0x4000 => {
-                // let addr = self.vram_addr - 0x2000;
-                let addr = self.vram_addr;
-                self.vram_addr += self.get_vram_offset() as u16;
-                return self.vram.read(addr - 0x3F00);
+                // vram_buf = self.vram.read(self.vram_addr - 0x3F00);
+                let addr = (self.vram_addr - 0x3F00) as usize;
+                vram_buf = self.palette.read()[addr];
             },
             _ => panic!("invalid addr: {}", self.vram_addr),
         }
+        self.vram_addr += self.get_vram_offset() as u16;
         vram_buf as u8
     }
     pub fn read(&mut self, addr: u16) -> u8 {
@@ -460,26 +444,30 @@ impl<'a> Ppu<'a> {
     }
     // write by cpu
     fn write_vram_data(&mut self, data: u8) {
+        // println!("write_vram_data {:#06X} {:#04X}", self.vram_addr, data);
         match self.vram_addr {
             // pattern table from charactor rom
             0x0000..=0x1FFF => {
-                println!("write_vram_data {:#06X} {:#04X}", self.vram_addr, data);
-                if self.vram_addr as usize >= self.char_ram.data.len() {
-                    return
+                // println!("write_vram_data {:#06X} {:#04X}", self.vram_addr, data);
+                if self.is_char_rom {
+                    return;
+                } else {
+                    // println!("char ram write addr:{} data:{}", self.vram_addr, data);
+                    self.char_ram.write(self.vram_addr, data);
                 }
-                // println!("char ram write addr:{} data:{}", self.vram_addr, data);
-                // self.char_ram.write(self.vram_addr, data);
             },
-            // name table, attr table
+            // name table, attr table [0x2000:0x2FFF]
+            // name table, attr table [0x3000:0x3EFF] => copy of [0x2000:0x2EFF] 
             0x2000..=0x3EFF => {
-                let addr: u16 = self.calc_vram_addr();
+                let addr: u16 = self.vram_addr % 0x1000;
+                // println!("write_vram_data {:#06X} {:#06X} {:#04X}",
+                    // self.vram_addr, addr, data);
                 self.vram.write(addr, data);
             },
             0x3F00..=0x4000 => {
                 // pallette
-                let addr: u16 = self.calc_vram_addr();
-
-                self.palette.write(self.vram_addr - 0x3F00, data);
+                let addr: u16 = (self.vram_addr - 0x3F00);
+                self.palette.write(addr, data);
             },
             _ => panic!("invalid addr: {}", self.vram_addr),
         }
@@ -712,7 +700,8 @@ impl<'a> Ppu<'a> {
                 );
                 let palette_id: u16 =
                     ((attr as i16 >> (block_id * 2)) as i16 & 0x03) as u16;
-
+                // println!("attr:{} palette:{}, x:{} y:{}",
+                //     attr, palette_id, j, i);
                 // let is_no_update =
                 //     image.dbg_bg[i as usize][j as usize].sprite_id == sprite_id &&
                 //     image.dbg_bg[i as usize][j as usize].attr == attr;
