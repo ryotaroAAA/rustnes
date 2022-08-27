@@ -65,6 +65,7 @@ pub const SPRITE_RAM_SIZE: usize = 0x0100;
 const TILE_SIZE: usize = 8;
 const V_SIZE_WITH_VBLANK: usize = 262;
 const CYCLE_PER_LINE: usize = 341;
+
 #[derive(Debug, Clone)]
 pub struct Sprite {
     pub x: u8,
@@ -191,8 +192,8 @@ impl Palette {
 
 #[derive(Debug)]
 pub struct Ppu<'a> {
-    cycle: u64,
-    line: u16,
+    pub cycle: u64,
+    pub line: u16,
     background_index: u8,
     vram_buf: u8,
     vram_addr: u16,
@@ -212,6 +213,7 @@ pub struct Ppu<'a> {
     // char_rom: Ram,
     char_ram: Ram,
     vram: &'a mut Ram,
+    scroll_mario: u8,
 }
 
 impl<'a> Ppu<'a> {
@@ -247,6 +249,7 @@ impl<'a> Ppu<'a> {
             // char_rom: char_rom,
             char_ram: char_ram,
             vram: vram,
+            scroll_mario: 0,
         }
     }
     // Control Register 1, Main Screen assignment by name table
@@ -283,11 +286,22 @@ impl<'a> Ppu<'a> {
     }
     // PPU status register
     fn set_sprite_hit(&mut self) {
+        let sreg = self.sreg;
         self.sreg |= 0x40;
+        // if sreg != self.sreg {
+        //     println!("set_sprite_hit {:08b} {:08b} {:08b} {} {} mx:{}",
+        //         self.sreg, self.creg1, self.creg2,
+        //         self.scroll_x, self.scroll_y, self.scroll_mario);
+        // }
     }
     // PPU status register
     fn clear_sprite_hit(&mut self) {
+        let sreg = self.sreg;
         self.sreg &= 0xBF;
+        // if sreg != self.sreg {
+        //     println!("clear_sprite_hit {:08b} {:08b} {:08b} mx:{}",
+        //         self.sreg, self.creg1, self.creg2, self.scroll_mario);
+        // }
     }
     // PPU status register
     fn set_vblank(&mut self) {
@@ -342,17 +356,19 @@ impl<'a> Ppu<'a> {
     }
     // read from name_table
     fn get_sprite_id(&mut self, x: u16, y: u16, offset: u16) -> u8{
-        let tile_num: u16 = y as u16 * 32 + x as u16;
+        let tile_num: u16 =  x as u16 + y as u16 * 32;
         let sprite_addr: u16 =
             self.get_vram_addr(tile_num + offset);
         self.vram.read(sprite_addr)
     }
     fn get_attribute(&mut self, x: u16, y: u16, offset: u16) -> u8{
-        // println!("{} {} {}", x, y, offset);
         let addr: u16 = x as u16 / 4 +
             (y as u16/ 4) * 8 +
             0x03C0 + offset;
         let sprite_addr: u16 = self.get_vram_addr(addr);
+            // if x == 0 && y == 0 {
+            //     println!("{} {} {:b}", offset, sprite_addr, self.vram.read(sprite_addr));
+        // }
         self.vram.read(sprite_addr)
     }
     fn get_palette(&mut self, image: &mut Image) {
@@ -423,12 +439,21 @@ impl<'a> Ppu<'a> {
         self.sprite_ram_addr += 1;
     }
     fn write_scroll_data(&mut self, data: u8) {
+        let (x, y) = (self.scroll_x, self.scroll_y);
         if self.is_horizontal_scroll {
             self.is_horizontal_scroll = false;
             self.scroll_x = data;
         } else {
             self.scroll_y = data;
             self.is_horizontal_scroll = true;
+        }
+        if x != self.scroll_x || y != self.scroll_y {
+            let has_sprite_hit = self.has_sprite_hit();
+            println!("{}, {}, {} data:{} mariox:{}",
+                self.scroll_x,
+                self.scroll_y,
+                has_sprite_hit,
+                data, self.scroll_mario);
         }
     }
     // write by cpu
@@ -445,6 +470,7 @@ impl<'a> Ppu<'a> {
     // write by cpu
     fn write_vram_data(&mut self, data: u8) {
         // println!("write_vram_data {:#06X} {:#04X}", self.vram_addr, data);
+        self.vram_addr %= 0x4000;
         match self.vram_addr {
             // pattern table from charactor rom
             0x0000..=0x1FFF => {
@@ -483,7 +509,10 @@ impl<'a> Ppu<'a> {
             // sprite ram write
             0x0004 => self.write_sprite_ram_data(data),
             // set scroll setting
-            0x0005 => self.write_scroll_data(data),
+            0x0005 => {
+                // println!("{} {} {}", addr, data, self.line);
+                self.write_scroll_data(data);
+            },
             // set vram write addr (first: high 8bit, second: low 8bit)
             0x0006 => self.write_vram_addr(data),
             // sprite ram write
@@ -698,10 +727,9 @@ impl<'a> Ppu<'a> {
                     i as u16 % V_SPRITE_NUM as u16,
                     offset
                 );
-                let palette_id: u16 =
+                let tile: &mut Tile = &mut image.dbg_bg[i as usize][j as usize];
+                tile.palette_id = 
                     ((attr as i16 >> (block_id * 2)) as i16 & 0x03) as u16;
-                // println!("attr:{} palette:{}, x:{} y:{}",
-                //     attr, palette_id, j, i);
                 // let is_no_update =
                 //     image.dbg_bg[i as usize][j as usize].sprite_id == sprite_id &&
                 //     image.dbg_bg[i as usize][j as usize].attr == attr;
@@ -716,14 +744,15 @@ impl<'a> Ppu<'a> {
                     true,
                     sprite_id,
                     background_table_offset,
-                    &mut image.dbg_bg[i as usize][j as usize].sprite
+                    &mut tile.sprite
                 );
             }   
         }
     }
 
-    pub fn run(&mut self, cycle: u64, image: &mut Image, interrupts: &mut Interrupts) -> bool{
+    pub fn run(&mut self, cycle: u64, image: &mut Image, interrupts: &mut Interrupts, mx: u8) -> bool{
         self.cycle += 3 * cycle;
+        self.scroll_mario = mx;
 
         if self.cycle >= CYCLE_PER_LINE as u64 {
             if self.line == 0 {
@@ -744,6 +773,7 @@ impl<'a> Ppu<'a> {
             }
             if self.line == (V_SIZE as u16 + 1) {
                 self.set_vblank();
+                self.clear_sprite_hit();
                 interrupts.deassert_nmi();
                 if self.has_vblank_irq_enabled() {
                     interrupts.assert_nmi();

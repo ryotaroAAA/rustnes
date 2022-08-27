@@ -59,6 +59,16 @@ impl Render {
             .sprite.data[(y % 8) as usize][(x % 8) as usize] % 4) > 0
     }
 
+    fn render_dbg_background(&mut self, image: &Image) {
+        for i in 0..2*V_SPRITE_NUM {
+            for j in 0..2*H_SPRITE_NUM {
+                // if image.dbg_bg[j][i].is_background_enable {
+                    self.render_dbg_tile(image, j as u16, i as u16);
+                // }
+            }
+        }
+    }
+
     fn render_background(&mut self, image: &Image) {
         for i in 0..V_SPRITE_NUM {
             for j in 0..H_SPRITE_NUM {
@@ -76,16 +86,8 @@ impl Render {
         tile_y: u16
     ) {
         let tile:&Tile = &image.dbg_bg[tile_y as usize][tile_x as usize];
-        if !tile.is_need_update {
-            return;
-        }
         let current_x: u16 = (image.current_x as u16) as u16;
         let current_y: u16 = (image.current_y as u16) as u16;
-        if self.temp != image.current_y as u16 {
-            // dbg!(image.current_y, current_y);
-            self.temp = image.current_y as u16;
-        }
-
         let palette_id: u16 = tile.palette_id;
         for j in 0..8 {
             for i in 0..8 {
@@ -111,16 +113,6 @@ impl Render {
         }
     }
 
-    fn render_dbg_background(&mut self, image: &Image) {
-        for j in 0..2*V_SPRITE_NUM {
-            for i in 0..2*H_SPRITE_NUM {
-                // if image.dbg_bg[j][i].is_background_enable {
-                    self.render_dbg_tile(image, i as u16, j as u16);
-                // }
-            }
-        }
-    }
-
     fn render_tile(
         &mut self, 
         image: &Image,
@@ -128,17 +120,6 @@ impl Render {
         tile_y: u8
     ) {
         let tile:&Tile = &image.background[tile_y as usize][tile_x as usize];
-        // if !tile.is_need_update {
-        //     return;
-        // }
-        // if tile.sprite_id > 0 {
-        //     for a in &tile.sprite.data {
-        //         for b in a.iter() {
-        //             print!("{:?}", b);
-        //         }
-        //         print!("\n");
-        //     }
-        // }
         let palette_id: u16 = tile.palette_id;
         let off_x: i16 = (tile.scroll_x % 8) as i16;
         let off_y: i16 = (tile.scroll_y % 8) as i16;

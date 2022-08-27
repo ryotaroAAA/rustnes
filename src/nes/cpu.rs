@@ -153,7 +153,8 @@ pub struct Cpu<'a> {
     wram: &'a mut Ram,
     mapper: Mapper,
     pub keypad1: KeyPadRegister,
-    pub keypad2: KeyPadRegister
+    pub keypad2: KeyPadRegister,
+    pub mx: u8,
 }
 
 impl<'a> Cpu<'a> {
@@ -181,7 +182,8 @@ impl<'a> Cpu<'a> {
             wram: wram,
             mapper: Mapper::new(cas.mapper, 0),
             keypad1: KeyPadRegister::new(),
-            keypad2: KeyPadRegister::new()
+            keypad2: KeyPadRegister::new(),
+            mx: 0,
         }
     }
     pub fn reset(&mut self, ppu: &mut Ppu, apu: &mut Apu, interrupts: &mut Interrupts) {
@@ -224,7 +226,6 @@ impl<'a> Cpu<'a> {
             0x2000 ..= 0x3FFF => {
                 ppu.read(addr - 0x2000) // ppu read
             },
-                // 0x2000 ..= 0x3FFF => ppu.read((addr - 0x2000) % 8), // ppu read
             0x4015 => apu.read(interrupts, addr), // apu
             0x4016 => self.keypad1.read(), // keypad 1p
             0x4017 => self.keypad2.read(), // keypad 1p
@@ -246,7 +247,9 @@ impl<'a> Cpu<'a> {
         match addr {
             0x0000 ..= 0x1FFF => self.wram.write(addr, data),
             0x2000 ..= 0x2007 => {
-                // println!("ppu_write {:#X} {:#X}", addr - 0x2000, data);
+                if addr == 0x2005 {
+                    // println!("{:#X} {} {}", addr, data, self.wram.read(0x073F));
+                }
                 ppu.write(addr - 0x2000, data); // ppu write
             },
             0x4014 => {
@@ -399,10 +402,7 @@ impl<'a> Cpu<'a> {
                 let result: u16 = self.reg.a as u16 +
                     data_ as u16 +
                     if self.reg.p & CARRY > 0 {1} else {0};
-                self.reg.p =
-                    if result > 0xFF &&
-                        self.reg.a < 0xFF &&
-                        data_ < 0xFF {
+                self.reg.p = if result > 0xFF {
                     self.reg.p | CARRY
                 } else {
                     self.reg.p & !CARRY
@@ -943,18 +943,26 @@ impl<'a> Cpu<'a> {
         self.reg.p |= INTERRUPT;
         self.reg.pc = self.wread(ppu, apu, interrupts, 0xFFFE);
     }
-    fn show_op(&mut self, pc: u16, fop: &FetchedOp) {
+    fn show_op(&mut self, pc: u16, fop: &FetchedOp, ppu: &Ppu) {
         let i: usize = self.index as usize;
         let op: OpInfo = fop.op;
-        if op.opcode.to_string() == "JMP" {
-            return;
-        }
-        let fmt: String = format!("{:05} {:04X} {:3} {:4} {:04X} A:{:02X} X:{:02X} Y:{:02X} P:{:02X} SP:{:04X} {}",
+        // if op.opcode.to_string() == "JMP" {
+        //     return;
+        // }
+        // if i >= 50 {
+        //     println!("nestest check successed!");
+        //     process::exit(0);
+        // }
+        let fmt: String = format!(
+            // "{:05} {:04X} {:3} {:4} {:04X} A:{:02X} X:{:02X} Y:{:02X} P:{:02X} SP:{:04X} PPU:{:>3},{:>3} CYC:{}",
+            "{:05} {:5} {:3} {:4} {:04X} A:{:02X} X:{:02X} Y:{:02X} P:{:02X} SP:{:04X} PPU:{:>3},{:>3} CYC:{}",
             i + 1, pc, op.opcode.to_string(),
             op.mode.to_string(), fop.data,
             self.reg.a, self.reg.x,
             self.reg.y, self.reg.p,
-            self.reg.sp, self.cycle);
+            self.reg.sp, ppu.line, ppu.cycle,
+            self.cycle
+        );
         println!("{fmt}");
         self.exec_log.push(fmt);
     }
@@ -1001,8 +1009,17 @@ impl<'a> Cpu<'a> {
         let pc = self.reg.pc;
         let mut fetched_op: FetchedOp = 
             self.fetch_op(ppu, apu, interrupts);
-        // self.show_op(pc, &fetched_op);
+        // self.show_op(pc, &fetched_op, &ppu);
         // self.nestest(pc, &fetched_op);
+        // if self.wram.read(0x073F) > 0 {
+            // println!("{:#X} {:#X} {:#X}",
+            //     self.wram.read(0x073F), // horizontal scroll
+            //     self.wram.read(0x0723), // scroll rock
+            //     self.wram.read(0x06ff) // player_x_scroll
+            // );
+        //     self.show_op(pc, &fetched_op, &ppu);
+        //     self.mx = self.wram.read(0x073F); 
+        // }
         self.exec(ppu, apu, interrupts, &mut fetched_op);
         let cycle: u64 = 
             (fetched_op.op.cycle + fetched_op.add_cycle) as u64 +
