@@ -55,11 +55,11 @@ pub fn run(cassette_path: &str, is_test: bool) {
             render.render(&mut image);
             game.update(&render.data,
                 UpdateMode::Game).unwrap();
-            game.update(&render.dbg_bg_data,
-                UpdateMode::NameTable).unwrap();
+            // game.update(&render.dbg_bg_data,
+            //     UpdateMode::NameTable).unwrap();
             // if !is_dbg_rendered {
-                game.update(&render.dbg_pattern_data,
-                    UpdateMode::PatternTable).unwrap();
+                // game.update(&render.dbg_pattern_data,
+                //     UpdateMode::PatternTable).unwrap();
                 // is_dbg_rendered = true;
             // }
             end = start.elapsed();

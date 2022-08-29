@@ -89,6 +89,8 @@ impl Sprite {
 pub struct Tile {
     pub scroll_x: u8,
     pub scroll_y: u8,
+    pub scroll_xs: [u8; 8],
+    pub scroll_ys: [u8; 8],
     pub sprite_id: u16,
     pub palette_id: u16,
     pub is_need_update: bool,
@@ -101,6 +103,8 @@ impl Tile {
         Tile {
             scroll_x: 0,
             scroll_y: 0,
+            scroll_xs: [0; 8],
+            scroll_ys: [0; 8],
             sprite_id: 0,
             palette_id: 0,
             is_need_update: true,
@@ -208,12 +212,13 @@ pub struct Ppu<'a> {
     creg2: u8,
     sreg: u8,
     is_char_rom: bool,
+    sprite_0_hit_switch: bool,
+    already_sprite_0_hit: bool,
     palette: Palette,
     sprite_ram: Ram,
     // char_rom: Ram,
     char_ram: Ram,
     vram: &'a mut Ram,
-    scroll_mario: u8,
 }
 
 impl<'a> Ppu<'a> {
@@ -238,18 +243,19 @@ impl<'a> Ppu<'a> {
             scroll_x: 0,
             scroll_y: 0,
             is_horizontal_mirror: cas.is_horizontal_mirror,
-            is_horizontal_scroll: false,
-            is_lower_vram_addr: false,
+            is_horizontal_scroll: false, // vertical scroll is first
+            is_lower_vram_addr: false, // higher is first
             creg1: 0,
             creg2: 0,
             sreg: 0,
             is_char_rom: cas.char_size > 0,
+            sprite_0_hit_switch: false,
+            already_sprite_0_hit: false,
             palette: Palette::new(PALETTE_SIZE),
             sprite_ram: Ram::new(SPRITE_RAM_SIZE),
             // char_rom: char_rom,
             char_ram: char_ram,
             vram: vram,
-            scroll_mario: 0,
         }
     }
     // Control Register 1, Main Screen assignment by name table
@@ -285,43 +291,73 @@ impl<'a> Ppu<'a> {
         self.creg2 & 0x10 > 0
     }
     // PPU status register
-    fn set_sprite_hit(&mut self) {
+    fn set_sprite_0_hit(&mut self) {
         let sreg = self.sreg;
         self.sreg |= 0x40;
-        // if sreg != self.sreg {
-        //     println!("set_sprite_hit {:08b} {:08b} {:08b} {} {} mx:{}",
-        //         self.sreg, self.creg1, self.creg2,
-        //         self.scroll_x, self.scroll_y, self.scroll_mario);
-        // }
+        if sreg != self.sreg {
+            println!("set_sprite_0_hit   {:08b} {:08b} {:08b} x:{:3} y:{:3} line:{:3} cyc:{:3}",
+                self.sreg, self.creg1, self.creg2,
+                self.scroll_x, self.scroll_y, self.line, self.cycle);
+        }
     }
     // PPU status register
-    fn clear_sprite_hit(&mut self) {
+    fn clear_sprite_0_hit(&mut self, line: usize) {
         let sreg = self.sreg;
         self.sreg &= 0xBF;
-        // if sreg != self.sreg {
-        //     println!("clear_sprite_hit {:08b} {:08b} {:08b} mx:{}",
-        //         self.sreg, self.creg1, self.creg2, self.scroll_mario);
-        // }
+        self.already_sprite_0_hit = false;
+        if sreg != self.sreg {
+            println!("clear_sprite_0_hit {:08b} {:08b} {:08b} x:{:3} y:{:3} line:{:3} cyc:{:3}",
+                self.sreg, self.creg1, self.creg2,
+                self.scroll_x, self.scroll_y, line, self.cycle);
+        }
     }
     // PPU status register
     fn set_vblank(&mut self) {
         self.sreg |= 0x80;
     }
     // PPU status register
-    fn get_is_vblank(&mut self) -> bool {
-        self.sreg & 0x80 > 0
-    }
+    // fn get_is_vblank(&mut self) -> bool {
+    //     self.sreg & 0x80 > 0
+    // }
     // PPU status register
     fn clear_vblank(&mut self) {
         self.sreg &= 0x7F;
     }
-    fn has_sprite_hit(&mut self) -> bool {
-        let x: u8 = self.sprite_ram.read(0x03);
-        let y: u8 = self.sprite_ram.read(0x00);
-        let is_hit =
-            x <= self.cycle as u8 &&
-            y == self.line as u8 &&
-            self.get_is_sprite_enable();
+    fn is_sprite_0_hit(&mut self) -> bool {
+        if self.already_sprite_0_hit {
+            return false;
+        }
+        let y: u8 = self.sprite_ram.read(0);
+        let sprite_id: u16 = self.sprite_ram.read(1) as u16;
+        let x = self.sprite_ram.read(3);
+        let mut is_hit = false;
+        if (y as u16) <= self.line && self.line < (y as u16 + 8) {
+            let mut sprite = Sprite::new();
+            self.build_sprite_data(
+                false,
+                sprite_id,
+                0,
+                &mut sprite,
+            );
+            let base_y = self.line as u8 - y;
+            let mut is_not_transparent_line = false;
+            for i in 0..8 {
+                if sprite.data[base_y as usize][i as usize] > 0 {
+                    is_not_transparent_line = true;
+                    break
+                }
+            }
+
+            if !is_not_transparent_line {
+                return false;
+            }
+
+            is_hit = x <= self.cycle as u8 &&
+                is_not_transparent_line &&
+                self.get_is_sprite_enable();
+            self.already_sprite_0_hit = is_hit;
+            self.sprite_0_hit_switch = is_hit;
+        }
         is_hit
     }
     fn get_scroll_tile_x(&mut self) -> u8 {
@@ -413,10 +449,11 @@ impl<'a> Ppu<'a> {
             0x0002 => {
                 // PPUSTATUS
                 let status: u8 = self.sreg;
-                self.is_horizontal_scroll = true;
-                self.is_lower_vram_addr = false;
                 self.clear_vblank();
-                self.clear_sprite_hit();
+                let line = self.line;
+                // self.clear_sprite_0_hit(line as usize);
+                self.is_lower_vram_addr = false;
+                self.is_horizontal_scroll = true;
                 return status;
             },
             0x0004 => {
@@ -448,12 +485,13 @@ impl<'a> Ppu<'a> {
             self.is_horizontal_scroll = true;
         }
         if x != self.scroll_x || y != self.scroll_y {
-            let has_sprite_hit = self.has_sprite_hit();
-            println!("{}, {}, {} data:{} mariox:{}",
+            let is_sprite_0_hit = self.already_sprite_0_hit;
+            println!("write scroll from game x:{}, y:{}, already_0hit:{} scroll_val:{} line:{}",
                 self.scroll_x,
                 self.scroll_y,
-                has_sprite_hit,
-                data, self.scroll_mario);
+                is_sprite_0_hit,
+                data,
+                self.line);
         }
     }
     // write by cpu
@@ -659,7 +697,7 @@ impl<'a> Ppu<'a> {
         tile.scroll_x = self.scroll_x;
         tile.scroll_y = self.scroll_y;
         tile.is_background_enable = true;
-        // tile.is_background_enable = self.get_is_background_enable();
+        tile.is_background_enable = self.get_is_background_enable();
     }
     // draw every 8 line
     fn build_background(&mut self, image: &mut Image) {
@@ -750,17 +788,16 @@ impl<'a> Ppu<'a> {
         }
     }
 
-    pub fn run(&mut self, cycle: u64, image: &mut Image, interrupts: &mut Interrupts, mx: u8) -> bool{
+    pub fn run(&mut self, cycle: u64, image: &mut Image, interrupts: &mut Interrupts) -> bool{
         self.cycle += 3 * cycle;
-        self.scroll_mario = mx;
 
         if self.cycle >= CYCLE_PER_LINE as u64 {
             if self.line == 0 {
                 image.sprite.resize(0, Sprite::new());
             }
 
-            if self.has_sprite_hit() {
-                self.set_sprite_hit();
+            if self.is_sprite_0_hit() {
+                // self.set_sprite_0_hit();
             }
 
             self.cycle -= CYCLE_PER_LINE as u64;
@@ -770,18 +807,21 @@ impl<'a> Ppu<'a> {
                     self.scroll_y <= V_SIZE as u8 &&
                     self.line % TILE_SIZE as u16 == 0 {
                 self.build_background(image);
+                if self.already_sprite_0_hit {
+                    self.set_sprite_0_hit();
+                }
             }
             if self.line == (V_SIZE as u16 + 1) {
                 self.set_vblank();
-                self.clear_sprite_hit();
+                // self.clear_sprite_0_hit(self.line as usize);
                 interrupts.deassert_nmi();
                 if self.has_vblank_irq_enabled() {
                     interrupts.assert_nmi();
                 }
             }
-            if self.line >= V_SIZE_WITH_VBLANK as u16 {
+            if self.line >= V_SIZE_WITH_VBLANK as u16 {                
                 self.clear_vblank();
-                self.clear_sprite_hit();
+                self.clear_sprite_0_hit(self.line as usize);
                 interrupts.deassert_nmi();
                 self.line = 0;
                 self.background_index = 0;

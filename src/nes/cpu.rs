@@ -247,9 +247,6 @@ impl<'a> Cpu<'a> {
         match addr {
             0x0000 ..= 0x1FFF => self.wram.write(addr, data),
             0x2000 ..= 0x2007 => {
-                if addr == 0x2005 {
-                    // println!("{:#X} {} {}", addr, data, self.wram.read(0x073F));
-                }
                 ppu.write(addr - 0x2000, data); // ppu write
             },
             0x4014 => {
@@ -423,18 +420,22 @@ impl<'a> Cpu<'a> {
                 } else {
                     self.bread(ppu, apu, interrupts, data) as u8
                 };
-                let result: i16 = self.reg.a as i16 -
-                    data_ as i16 -
-                    if self.reg.p & CARRY > 0 {0} else {1};
-                self.reg.p = if !(result < 0) {
+                let a: u8 = self.reg.a;
+                let m: u8 = data_;
+                let c: u8 = if self.reg.p & CARRY > 0 {0} else {1};
+                let result: i16 = a as i16 - m as i16 - c as i16;
+                self.reg.p = if result >= 0 {
                     self.reg.p | CARRY
                 } else {
                     self.reg.p & !CARRY
                 };
                 self.reg.p =
-                    if ((data_ ^ result as u8) & 0x80 > 0 ||
-                        (self.reg.a ^ result as u8) & 0x80 > 0) &&
-                        self.reg.p & CARRY > 0 {
+                    // if ((data_ ^ result as u8) & 0x80 > 0 ||
+                    //     (self.reg.a ^ result as u8) & 0x80 > 0) &&
+                    //     self.reg.p & CARRY > 0 {
+                        // if result < 0x80 && a >= 0x80 ||
+                        //     result >= 0x80 && a < 0x80 {
+                        if result >= 0x80 && a < 0x80 {
                     self.reg.p | OVERFLOW
                 } else {
                     self.reg.p & !OVERFLOW
@@ -946,9 +947,10 @@ impl<'a> Cpu<'a> {
     fn show_op(&mut self, pc: u16, fop: &FetchedOp, ppu: &Ppu) {
         let i: usize = self.index as usize;
         let op: OpInfo = fop.op;
-        // if op.opcode.to_string() == "JMP" {
-        //     return;
-        // }
+        if op.opcode.to_string() != "ADC" &&
+                op.opcode.to_string() != "SBC" {
+            return;
+        }
         // if i >= 50 {
         //     println!("nestest check successed!");
         //     process::exit(0);
@@ -1017,9 +1019,7 @@ impl<'a> Cpu<'a> {
             //     self.wram.read(0x0723), // scroll rock
             //     self.wram.read(0x06ff) // player_x_scroll
             // );
-        //     self.show_op(pc, &fetched_op, &ppu);
-        //     self.mx = self.wram.read(0x073F); 
-        // }
+            // self.show_op(pc, &fetched_op, &ppu);
         self.exec(ppu, apu, interrupts, &mut fetched_op);
         let cycle: u64 = 
             (fetched_op.op.cycle + fetched_op.add_cycle) as u64 +
