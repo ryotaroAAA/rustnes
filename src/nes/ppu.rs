@@ -295,9 +295,9 @@ impl<'a> Ppu<'a> {
         let sreg = self.sreg;
         self.sreg |= 0x40;
         if sreg != self.sreg {
-            println!("set_sprite_0_hit   {:08b} {:08b} {:08b} x:{:3} y:{:3} line:{:3} cyc:{:3}",
-                self.sreg, self.creg1, self.creg2,
-                self.scroll_x, self.scroll_y, self.line, self.cycle);
+            // println!("set_sprite_0_hit   {:08b} {:08b} {:08b} x:{:3} y:{:3} line:{:3} cyc:{:3}",
+            //     self.sreg, self.creg1, self.creg2,
+            //     self.scroll_x, self.scroll_y, self.line, self.cycle);
         }
     }
     // PPU status register
@@ -306,9 +306,9 @@ impl<'a> Ppu<'a> {
         self.sreg &= 0xBF;
         self.already_sprite_0_hit = false;
         if sreg != self.sreg {
-            println!("clear_sprite_0_hit {:08b} {:08b} {:08b} x:{:3} y:{:3} line:{:3} cyc:{:3}",
-                self.sreg, self.creg1, self.creg2,
-                self.scroll_x, self.scroll_y, line, self.cycle);
+            // println!("clear_sprite_0_hit {:08b} {:08b} {:08b} x:{:3} y:{:3} line:{:3} cyc:{:3}",
+            //     self.sreg, self.creg1, self.creg2,
+            //     self.scroll_x, self.scroll_y, line, self.cycle);
         }
     }
     // PPU status register
@@ -352,9 +352,10 @@ impl<'a> Ppu<'a> {
                 return false;
             }
 
-            is_hit = x <= self.cycle as u8 &&
-                is_not_transparent_line &&
+            is_hit = (x as u64) <= self.cycle &&
+                is_not_transparent_line;
                 self.get_is_sprite_enable();
+            
             self.already_sprite_0_hit = is_hit;
             self.sprite_0_hit_switch = is_hit;
         }
@@ -486,12 +487,12 @@ impl<'a> Ppu<'a> {
         }
         if x != self.scroll_x || y != self.scroll_y {
             let is_sprite_0_hit = self.already_sprite_0_hit;
-            println!("write scroll from game x:{}, y:{}, already_0hit:{} scroll_val:{} line:{}",
-                self.scroll_x,
-                self.scroll_y,
-                is_sprite_0_hit,
-                data,
-                self.line);
+            // println!("write scroll from game x:{}, y:{}, already_0hit:{} scroll_val:{} line:{}",
+            //     self.scroll_x,
+            //     self.scroll_y,
+            //     is_sprite_0_hit,
+            //     data,
+            //     self.line);
         }
     }
     // write by cpu
@@ -797,6 +798,7 @@ impl<'a> Ppu<'a> {
             }
 
             if self.is_sprite_0_hit() {
+                // WA
                 // self.set_sprite_0_hit();
             }
 
@@ -806,22 +808,24 @@ impl<'a> Ppu<'a> {
             if self.line <= V_SIZE as u16 &&
                     self.scroll_y <= V_SIZE as u8 &&
                     self.line % TILE_SIZE as u16 == 0 {
+
                 self.build_background(image);
+                // WA
                 if self.already_sprite_0_hit {
                     self.set_sprite_0_hit();
                 }
             }
             if self.line == (V_SIZE as u16 + 1) {
                 self.set_vblank();
-                // self.clear_sprite_0_hit(self.line as usize);
+                self.clear_sprite_0_hit(self.line as usize);
                 interrupts.deassert_nmi();
                 if self.has_vblank_irq_enabled() {
                     interrupts.assert_nmi();
                 }
             }
             if self.line >= V_SIZE_WITH_VBLANK as u16 {                
-                self.clear_vblank();
                 self.clear_sprite_0_hit(self.line as usize);
+                self.clear_vblank();
                 interrupts.deassert_nmi();
                 self.line = 0;
                 self.background_index = 0;

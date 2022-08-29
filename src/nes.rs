@@ -66,7 +66,7 @@ pub fn run(cassette_path: &str, is_debug: bool) {
             }
             end = start.elapsed();
             let erapsed: f32 = end.subsec_nanos() as f32 / 1_000_000_000 as f32;
-            // println!("fps:{}, sec:{}", 1.0 / erapsed, erapsed);
+            println!("fps:{}, sec:{}", 1.0 / erapsed, erapsed);
             start = Instant::now();
         }
         if status == GameStatus::Exit {
