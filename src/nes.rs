@@ -26,7 +26,7 @@ const VRAM_SIZE: usize = 0x2000; // 2KiB?
 
 use std::time::{Duration, Instant};
 
-pub fn run(cassette_path: &str, is_test: bool) {
+pub fn run(cassette_path: &str, is_debug: bool) {
     let mut wram: Ram = Ram::new(WRAM_SIZE);
     let mut vram: Ram = Ram::new(VRAM_SIZE);
     let cas: Cassette = Cassette::new(cassette_path);
@@ -35,7 +35,7 @@ pub fn run(cassette_path: &str, is_test: bool) {
     let mut apu: Apu = Apu::new();
     let mut ppu: Ppu = Ppu::new(&cas, &mut vram);
     let mut cpu: Cpu = Cpu::new(&cas, &mut wram);
-    let mut game: Game = Game::new().unwrap();
+    let mut game: Game = Game::new(is_debug).unwrap();
     // let mut debug_bg: Game = Game::new().unwrap();
     let mut render: Render = Render::new();
 
@@ -55,13 +55,15 @@ pub fn run(cassette_path: &str, is_test: bool) {
             render.render(&mut image);
             game.update(&render.data,
                 UpdateMode::Game).unwrap();
-            // game.update(&render.dbg_bg_data,
-            //     UpdateMode::NameTable).unwrap();
-            // if !is_dbg_rendered {
-                // game.update(&render.dbg_pattern_data,
-                //     UpdateMode::PatternTable).unwrap();
-                // is_dbg_rendered = true;
-            // }
+            if is_debug {
+                game.update(&render.dbg_bg_data,
+                    UpdateMode::NameTable).unwrap();
+                // if !is_dbg_rendered {
+                    game.update(&render.dbg_pattern_data,
+                        UpdateMode::PatternTable).unwrap();
+                    // is_dbg_rendered = true;
+                // }
+            }
             end = start.elapsed();
             let erapsed: f32 = end.subsec_nanos() as f32 / 1_000_000_000 as f32;
             // println!("fps:{}, sec:{}", 1.0 / erapsed, erapsed);

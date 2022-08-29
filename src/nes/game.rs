@@ -39,14 +39,19 @@ pub enum UpdateMode {
 
 
 impl Game {
-    pub fn new() -> Result<Game, Box<dyn std::error::Error>> {
+    pub fn new(is_debug: bool) -> Result<Game, Box<dyn std::error::Error>> {
         let sdl_context: Sdl = sdl2::init()?;
         let video_subsystem = sdl_context.video()?;
+        let screen = if is_debug {
+            (3 * SCALE * H_SIZE as u32, 2 * SCALE * V_SIZE as u32)
+        } else {
+            (SCALE * H_SIZE as u32, SCALE * V_SIZE as u32)
+        };
         let window = video_subsystem
             .window(
                 "rustness",
-                3 * SCALE * H_SIZE as u32,
-                2 * SCALE * V_SIZE as u32
+                screen.0,
+                screen.1
             )
             .position_centered()
             .build()
