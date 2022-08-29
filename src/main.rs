@@ -8,11 +8,21 @@ fn main() {
     println!("{:?}", args);
     match args.len() {
         1 => nes::run("rom/nestest.nes", false),
-        2..=3 => {
-            let rom = &args[1];
+        2..=4 => {
+            let mut rom: &String = &"".to_string();
             let mut is_debug = false;
-            if args.len() == 3 {
-                is_debug = &args[2] == "debug";
+            for (i, a) in args.iter().enumerate() {
+                match a.as_str() {
+                    "-r" | "--rom" => {
+                        if i < args.len() {
+                            rom = &args[i+1];
+                        }
+                    },
+                    "-d" | "--debug" => {
+                        is_debug = true;
+                    },
+                    _ => (),
+                }
             }
             nes::run(rom, is_debug);
         }
